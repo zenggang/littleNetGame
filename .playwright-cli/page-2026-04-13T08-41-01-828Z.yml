@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - paragraph [ref=e4]: 答题越快越准，箭雨就越猛
+      - heading "小小数学战场" [level=1] [ref=e5]
+      - paragraph [ref=e6]: 上方打仗，下方答题。全房同题，谁先答对，谁的阵营立刻发箭。
+      - generic [ref=e7]:
+        - strong [ref=e8]: Supabase 已就绪
+        - generic [ref=e9]: 配置好匿名登录和表结构后，这里可以切到真正的房间同步。
+      - generic [ref=e11]:
+        - text: 你的昵称
+        - textbox "你的昵称" [ref=e12]:
+          - /placeholder: 输入一个短昵称
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - heading "创建房间" [level=2] [ref=e15]
+          - paragraph [ref=e16]: 当前只支持小学二年级，容量决定支持的对战模式。
+          - generic [ref=e17]:
+            - button "2 人房" [ref=e18] [cursor=pointer]
+            - button "3 人房" [ref=e19] [cursor=pointer]
+            - button "4 人房" [ref=e20] [cursor=pointer]
+            - button "6 人房" [ref=e21] [cursor=pointer]
+          - button "创建并进入房间" [ref=e22] [cursor=pointer]
+        - generic [ref=e23]:
+          - heading "加入房间" [level=2] [ref=e24]
+          - paragraph [ref=e25]: 把房间码告诉同学，或输入别人的房间码加入。
+          - textbox "输入 4 位房间码" [ref=e26]
+          - button "加入房间" [ref=e27] [cursor=pointer]
+      - generic [ref=e28]:
+        - article [ref=e29]:
+          - strong [ref=e30]: 支持模式
+          - generic [ref=e31]: 1v1、1v2、1v3、2v2、3v3
+        - article [ref=e32]:
+          - strong [ref=e33]: 本局时长
+          - generic [ref=e34]: 60 秒快节奏对战
+        - article [ref=e35]:
+          - strong [ref=e36]: 题型范围
+          - generic [ref=e37]: 加减乘除和有余数除法
+  - alert [ref=e38]

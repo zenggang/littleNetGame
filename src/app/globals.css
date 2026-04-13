@@ -205,7 +205,43 @@ input {
 }
 
 @media (max-width: 720px) {
+  .teamColumn {
+    min-height: 0;
+    padding: 16px;
+    border-radius: 22px;
+  }
+
+  .teamHeader h3 {
+    font-size: 1.35rem;
+  }
+
   .doubleInput {
     grid-template-columns: 1fr;
+  }
+
+  .primaryButton,
+  .ghostButton {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .questionForm {
+    gap: 12px;
+  }
+
+  .answerInput {
+    padding: 13px 14px;
+  }
+}
+
+@media (max-width: 540px) {
+  .teamMembers li {
+    padding: 11px 12px;
+    font-size: 0.94rem;
+  }
+
+  .teamColumn {
+    gap: 12px;
+    padding: 14px;
   }
 }

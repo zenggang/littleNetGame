@@ -71,4 +71,29 @@
     grid-template-columns: 1fr;
     display: grid;
   }
+
+  .page {
+    padding: 18px 12px 30px;
+  }
+
+  .card {
+    gap: 16px;
+    padding: 22px 18px;
+    border-radius: 24px;
+  }
+
+  .scoreCard {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .actions {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 540px) {
+  .scoreCard span {
+    font-size: 1.6rem;
+  }
 }

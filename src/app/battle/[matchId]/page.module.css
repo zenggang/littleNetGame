@@ -855,9 +855,14 @@
 }
 
 @media (max-width: 1080px) {
+  .page {
+    padding: 18px 12px 32px;
+  }
+
   .battlefield {
     grid-template-columns: 1fr;
     min-height: unset;
+    padding: 20px;
   }
 
   .centerStage {
@@ -865,7 +870,7 @@
   }
 
   .arrowField {
-    min-height: 150px;
+    min-height: 160px;
   }
 
   .targetMarks span:first-child,
@@ -890,11 +895,189 @@
     padding: 18px;
   }
 
+  .battleShell {
+    gap: 14px;
+  }
+
+  .header,
+  .questionCard,
+  .footer,
+  .emptyState {
+    border-radius: 22px;
+  }
+
+  .timerCard {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .battlefield {
+    gap: 14px;
+    border-radius: 24px;
+  }
+
+  .camp {
+    gap: 12px;
+    padding: 16px 14px 14px;
+    border-radius: 22px;
+  }
+
+  .bannerPole {
+    top: 18px;
+    height: 88px;
+  }
+
+  .redCamp .bannerPole {
+    left: 10px;
+  }
+
+  .blueCamp .bannerPole {
+    right: 10px;
+  }
+
+  .redCamp .bannerPole::after,
+  .blueCamp .bannerPole::after {
+    width: 46px;
+    height: 30px;
+  }
+
+  .archerLine {
+    min-height: 92px;
+    gap: 6px;
+  }
+
+  .archer {
+    width: 28px;
+    height: 76px;
+  }
+
+  .archerHead {
+    left: 7px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .archerBody {
+    left: 9px;
+    width: 10px;
+    height: 36px;
+  }
+
+  .archerBow {
+    top: 18px;
+    width: 15px;
+    height: 32px;
+  }
+
   .eventRibbon {
     width: 100%;
+    padding: 12px 14px;
+    border-radius: 18px;
+  }
+
+  .eventRibbon strong {
+    font-size: 0.95rem;
   }
 
   .memberList li {
     font-size: 0.94rem;
+    padding: 9px 11px;
+  }
+
+  .arrowField {
+    min-height: 128px;
+  }
+
+  .projectile {
+    width: 86px;
+    top: 48%;
+  }
+
+  .projectile::before {
+    top: -4px;
+    border-top-width: 9px;
+    border-bottom-width: 9px;
+    border-left-width: 15px;
+  }
+
+  .projectile::after {
+    left: -10px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .questionCard h2 {
+    font-size: clamp(1.5rem, 8vw, 2.1rem);
+    line-height: 1.15;
+  }
+
+  .footer {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 540px) {
+  .page {
+    padding: 12px 8px 24px;
+  }
+
+  .header,
+  .questionCard,
+  .footer,
+  .emptyState,
+  .battlefield {
+    padding: 14px;
+  }
+
+  .battlefield {
+    border-radius: 20px;
+  }
+
+  .camp {
+    padding: 14px 12px 12px;
+  }
+
+  .teamHud h2 {
+    font-size: 1.05rem;
+  }
+
+  .hpBadge {
+    padding: 8px 10px;
+  }
+
+  .hpBadge strong {
+    font-size: 1.25rem;
+  }
+
+  .memberList {
+    gap: 6px;
+  }
+
+  .centerStage {
+    gap: 12px;
+  }
+
+  .arrowField {
+    min-height: 110px;
+  }
+
+  .damageNumber {
+    font-size: 1.45rem;
+    top: 30%;
+  }
+
+  .impactBurst {
+    width: 62px;
+    height: 62px;
+  }
+
+  .impactBurst span {
+    width: 6px;
+    height: 22px;
+    margin: -11px 0 0 -3px;
+  }
+
+  .questionHeader {
+    gap: 6px;
   }
 }

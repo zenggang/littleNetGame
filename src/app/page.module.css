@@ -176,3 +176,45 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+@media (max-width: 720px) {
+  .page {
+    padding: 18px 12px 36px;
+  }
+
+  .heroCard {
+    gap: 18px;
+    padding: 22px 18px;
+    border-radius: 24px;
+  }
+
+  .summary {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .formBlock {
+    max-width: none;
+  }
+
+  .createCard,
+  .joinCard {
+    padding: 18px;
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 540px) {
+  .capacityGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .quickRules article {
+    padding: 16px;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    padding: 15px 16px;
+  }
+}

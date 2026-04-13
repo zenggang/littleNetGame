@@ -1,0 +1,40 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e44] [cursor=pointer]:
+    - img [ref=e45]
+  - alert [ref=e38]
+  - main [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - paragraph [ref=e52]: 房间码 K37N
+          - heading "集合并分队" [level=1] [ref=e53]
+          - paragraph [ref=e54]: 小学二年级 · 2 人房
+        - button "复制房间码" [ref=e55] [cursor=pointer]
+      - generic [ref=e56]:
+        - strong [ref=e57]: Supabase 已就绪
+        - generic [ref=e58]: 配置好匿名登录和表结构后，这里可以切到真正的房间同步。
+      - generic [ref=e59]:
+        - region "红队" [ref=e60]:
+          - generic [ref=e62]:
+            - paragraph [ref=e63]: 红队
+            - heading "1 人" [level=3] [ref=e64]
+          - list [ref=e65]:
+            - listitem [ref=e66]:
+              - generic [ref=e67]: 玩家496
+              - emphasis [ref=e68]: 我
+          - button "加入红队" [ref=e69] [cursor=pointer]
+        - region "蓝队" [ref=e70]:
+          - generic [ref=e72]:
+            - paragraph [ref=e73]: 蓝队
+            - heading "0 人" [level=3] [ref=e74]
+          - list [ref=e75]:
+            - listitem [ref=e76]: 还没人站这边
+          - button "加入蓝队" [ref=e77] [cursor=pointer]
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - strong [ref=e80]: 可开局模式
+          - text: 2 人 = 1v1，3 人 = 1v2，4 人 = 1v3 或 2v2，6 人 = 3v3
+        - generic [ref=e81]:
+          - strong [ref=e82]: 当前状态
+          - text: 还没满足支持的分队组合
+      - button "房主开始对战" [disabled] [ref=e83]

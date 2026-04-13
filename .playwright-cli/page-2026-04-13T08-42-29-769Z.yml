@@ -1,0 +1,52 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e10] [cursor=pointer]:
+    - img [ref=e11]
+  - alert [ref=e14]
+  - main [ref=e50]:
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - paragraph [ref=e54]: 1v1 · 全房同题
+          - heading "弓箭手对战" [level=1] [ref=e55]
+        - generic [ref=e56]:
+          - strong [ref=e57]: "2"
+          - text: 开战倒计时
+      - generic [ref=e58]:
+        - article [ref=e59]:
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - paragraph [ref=e63]: 红队营地
+              - heading "1 名弓箭手" [level=2] [ref=e64]
+            - generic [ref=e65]:
+              - strong [ref=e66]: "100"
+              - generic [ref=e67]: / 100
+          - list [ref=e76]:
+            - listitem [ref=e77]:
+              - generic [ref=e78]: 玩家496
+              - emphasis [ref=e79]: 我
+        - generic [ref=e81]:
+          - strong [ref=e82]: 第 1 题：27 + 15 = ?
+          - generic [ref=e83]: 题号 1
+        - article [ref=e86]:
+          - generic [ref=e88]:
+            - generic [ref=e89]:
+              - paragraph [ref=e90]: 蓝队营地
+              - heading "1 名弓箭手" [level=2] [ref=e91]
+            - generic [ref=e92]:
+              - strong [ref=e93]: "100"
+              - generic [ref=e94]: / 100
+          - list [ref=e103]:
+            - listitem [ref=e104]:
+              - generic [ref=e105]: 移动端B
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - generic [ref=e108]: 当前弹药题
+          - strong [ref=e109]: 伤害 8
+        - heading "27 + 15 = ?" [level=2] [ref=e110]
+        - paragraph [ref=e111]: 倒计时结束后才能提交
+        - generic [ref=e112]:
+          - textbox "输入答案" [disabled] [ref=e113]
+          - button "发射箭矢" [disabled] [ref=e114]
+      - generic [ref=e115]:
+        - paragraph [ref=e116]: 保持专注，抢在别人前面答出来。
+        - button "返回房间" [ref=e117] [cursor=pointer]
