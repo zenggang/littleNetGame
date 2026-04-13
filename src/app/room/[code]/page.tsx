@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { ModeCallout } from "@/components/game/mode-callout";
@@ -8,10 +8,12 @@ import { TeamColumn } from "@/components/game/team-column";
 import {
   getRoomSnapshot,
   joinRoom,
+  readPlayerSession,
   startMatch,
-  subscribeToDemoStore,
+  subscribeToRoom,
   switchTeam,
-} from "@/lib/demo/store";
+  toUserMessage,
+} from "@/lib/supabase/game-store";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
@@ -25,24 +27,60 @@ export default function RoomPage() {
   const hydrated = useHydrated();
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState("");
-  const [, setRefreshTick] = useState(0);
+  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getRoomSnapshot>> | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(
-    () => subscribeToDemoStore(() => setRefreshTick((value) => value + 1)),
-    [],
-  );
-
-  const snapshot = getRoomSnapshot(roomCode);
-  const redMembers = snapshot.members.filter((member) => member.team === "red");
-  const blueMembers = snapshot.members.filter((member) => member.team === "blue");
+  const loadSnapshot = useCallback(async () => {
+    try {
+      const nextSnapshot = await getRoomSnapshot(roomCode);
+      setSnapshot(nextSnapshot);
+      if (nextSnapshot.session?.nickname) {
+        setNickname((current) => current || nextSnapshot.session?.nickname || "");
+      }
+      setError("");
+    } catch (nextError) {
+      setError(toUserMessage(nextError));
+    }
+  }, [roomCode]);
 
   useEffect(() => {
-    if (snapshot.room?.activeMatchId) {
+    if (!hydrated) {
+      return;
+    }
+
+    readPlayerSession()
+      .then((session) => {
+        if (session?.nickname) {
+          setNickname((current) => current || session.nickname);
+        }
+      })
+      .catch(() => undefined);
+
+    loadSnapshot();
+  }, [hydrated, loadSnapshot]);
+
+  useEffect(() => {
+    const roomId = snapshot?.room?.id;
+
+    if (!hydrated || !roomId) {
+      return;
+    }
+
+    return subscribeToRoom(roomId, () => {
+      loadSnapshot();
+    });
+  }, [hydrated, loadSnapshot, snapshot?.room?.id]);
+
+  const redMembers = snapshot?.members.filter((member) => member.team === "red") ?? [];
+  const blueMembers = snapshot?.members.filter((member) => member.team === "blue") ?? [];
+
+  useEffect(() => {
+    if (snapshot?.room?.activeMatchId) {
       router.push(`/battle/${snapshot.room.activeMatchId}`);
     }
-  }, [router, snapshot.room?.activeMatchId]);
+  }, [router, snapshot?.room?.activeMatchId]);
 
-  if (!hydrated) {
+  if (!hydrated || !snapshot) {
     return (
       <main className={styles.page}>
         <section className={styles.emptyState}>
@@ -65,18 +103,20 @@ export default function RoomPage() {
     );
   }
 
+  const room = snapshot.room;
+
   return (
     <main className={styles.page}>
       <section className={styles.roomShell}>
         <header className={styles.header}>
           <div>
-            <p className={styles.roomCode}>房间码 {snapshot.room.code}</p>
+            <p className={styles.roomCode}>房间码 {room.code}</p>
             <h1>集合并分队</h1>
             <p className={styles.subtle}>
-              {snapshot.room.gradeLabel} · {snapshot.room.capacity} 人房
+              {room.gradeLabel} · {room.capacity} 人房
             </p>
           </div>
-          <button className="ghostButton" onClick={() => navigator.clipboard.writeText(snapshot.room.code)} type="button">
+          <button className="ghostButton" onClick={() => navigator.clipboard.writeText(room.code)} type="button">
             复制房间码
           </button>
         </header>
@@ -94,13 +134,17 @@ export default function RoomPage() {
             />
             <button
               className="primaryButton"
-              onClick={() => {
+              disabled={busy}
+              onClick={async () => {
                 try {
-                  joinRoom({ roomCode, nickname });
+                  setBusy(true);
+                  await joinRoom({ roomCode, nickname });
                   setError("");
-                  setRefreshTick((value) => value + 1);
-                } catch {
-                  setError("房间已满，或者已经开始了。");
+                  await loadSnapshot();
+                } catch (nextError) {
+                  setError(toUserMessage(nextError));
+                } finally {
+                  setBusy(false);
                 }
               }}
               type="button"
@@ -115,15 +159,33 @@ export default function RoomPage() {
             team="red"
             members={redMembers}
             activePlayerId={snapshot.session?.playerId ?? null}
-            onJoin={snapshot.viewer ? (team) => switchTeam(roomCode, team) : undefined}
-            locked={snapshot.room.status !== "open"}
+            onJoin={snapshot.viewer
+              ? async (team) => {
+                  try {
+                    await switchTeam(roomCode, team);
+                    await loadSnapshot();
+                  } catch (nextError) {
+                    setError(toUserMessage(nextError));
+                  }
+                }
+              : undefined}
+            locked={room.status !== "open"}
           />
           <TeamColumn
             team="blue"
             members={blueMembers}
             activePlayerId={snapshot.session?.playerId ?? null}
-            onJoin={snapshot.viewer ? (team) => switchTeam(roomCode, team) : undefined}
-            locked={snapshot.room.status !== "open"}
+            onJoin={snapshot.viewer
+              ? async (team) => {
+                  try {
+                    await switchTeam(roomCode, team);
+                    await loadSnapshot();
+                  } catch (nextError) {
+                    setError(toUserMessage(nextError));
+                  }
+                }
+              : undefined}
+            locked={room.status !== "open"}
           />
         </section>
 
@@ -140,16 +202,19 @@ export default function RoomPage() {
           </div>
         </section>
 
-        {snapshot.viewer?.playerId === snapshot.room.hostPlayerId ? (
+        {snapshot.viewer?.playerId === room.hostPlayerId ? (
           <button
             className="primaryButton"
-            disabled={!snapshot.canStart}
-            onClick={() => {
+            disabled={!snapshot.canStart || busy}
+            onClick={async () => {
               try {
-                const match = startMatch(roomCode);
+                setBusy(true);
+                const match = await startMatch(roomCode);
                 router.push(`/battle/${match.id}`);
-              } catch {
-                setError("当前还不能开局，请检查人数和分队。");
+              } catch (nextError) {
+                setError(toUserMessage(nextError));
+              } finally {
+                setBusy(false);
               }
             }}
             type="button"

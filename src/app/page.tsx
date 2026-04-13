@@ -1,20 +1,41 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ModeCallout } from "@/components/game/mode-callout";
-import { createRoom, joinRoom, readPlayerSession } from "@/lib/demo/store";
+import {
+  createRoom,
+  joinRoom,
+  readPlayerSession,
+  toUserMessage,
+} from "@/lib/supabase/game-store";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import styles from "./page.module.css";
 
 export default function HomePage() {
   const router = useRouter();
-  const session = useMemo(() => readPlayerSession(), []);
-  const [nickname, setNickname] = useState(session?.nickname ?? "");
+  const [nickname, setNickname] = useState("");
   const [capacity, setCapacity] = useState<2 | 3 | 4 | 6>(2);
   const [roomCode, setRoomCode] = useState("");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    readPlayerSession()
+      .then((session) => {
+        if (!cancelled && session?.nickname) {
+          setNickname((current) => current || session.nickname);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className={styles.page}>
@@ -59,9 +80,18 @@ export default function HomePage() {
 
             <button
               className={styles.primaryButton}
-              onClick={() => {
-                const room = createRoom({ capacity, nickname });
-                router.push(`/room/${room.code}`);
+              disabled={submitting}
+              onClick={async () => {
+                try {
+                  setSubmitting(true);
+                  setMessage("");
+                  const room = await createRoom({ capacity, nickname });
+                  router.push(`/room/${room.code}`);
+                } catch (error) {
+                  setMessage(toUserMessage(error));
+                } finally {
+                  setSubmitting(false);
+                }
               }}
               type="button"
             >
@@ -82,12 +112,17 @@ export default function HomePage() {
 
             <button
               className={styles.secondaryButton}
-              onClick={() => {
+              disabled={submitting}
+              onClick={async () => {
                 try {
-                  joinRoom({ roomCode: roomCode.trim(), nickname });
+                  setSubmitting(true);
+                  setMessage("");
+                  await joinRoom({ roomCode: roomCode.trim(), nickname });
                   router.push(`/room/${roomCode.trim()}`);
-                } catch {
-                  setMessage("没找到这个房间，或者房间已经开始了。");
+                } catch (error) {
+                  setMessage(toUserMessage(error));
+                } finally {
+                  setSubmitting(false);
                 }
               }}
               type="button"

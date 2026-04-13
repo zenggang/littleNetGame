@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { getMatchSnapshot, restartRoom, subscribeToDemoStore } from "@/lib/demo/store";
+import {
+  getMatchSnapshot,
+  restartRoom,
+  subscribeToMatch,
+  toUserMessage,
+} from "@/lib/supabase/game-store";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
@@ -14,16 +19,45 @@ export default function ResultPage() {
   const router = useRouter();
   const matchId = String(params.matchId ?? "");
   const hydrated = useHydrated();
-  const [, setRefreshTick] = useState(0);
+  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getMatchSnapshot>> | null>(null);
+  const [error, setError] = useState("");
 
-  useEffect(
-    () => subscribeToDemoStore(() => setRefreshTick((value) => value + 1)),
-    [],
-  );
+  const loadSnapshot = useCallback(async () => {
+    try {
+      const nextSnapshot = await getMatchSnapshot(matchId);
+      setSnapshot(nextSnapshot);
+      setError("");
+    } catch (nextError) {
+      setError(toUserMessage(nextError));
+    }
+  }, [matchId]);
 
-  const snapshot = getMatchSnapshot(matchId);
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
 
-  if (!hydrated) {
+    const frame = window.requestAnimationFrame(() => {
+      void loadSnapshot();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [hydrated, loadSnapshot]);
+
+  useEffect(() => {
+    const roomId = snapshot?.room?.id;
+    const activeMatchId = snapshot?.match?.id;
+
+    if (!hydrated || !roomId || !activeMatchId) {
+      return;
+    }
+
+    return subscribeToMatch(roomId, activeMatchId, () => {
+      loadSnapshot();
+    });
+  }, [hydrated, loadSnapshot, snapshot?.match?.id, snapshot?.room?.id]);
+
+  if (!hydrated || !snapshot) {
     return (
       <main className={styles.page}>
         <section className={styles.card}>
@@ -37,7 +71,7 @@ export default function ResultPage() {
     return (
       <main className={styles.page}>
         <section className={styles.card}>
-          <h1>结算找不到了</h1>
+          <h1>{error || "结算找不到了"}</h1>
           <button className="primaryButton" onClick={() => router.push("/")} type="button">
             返回大厅
           </button>
@@ -46,7 +80,9 @@ export default function ResultPage() {
     );
   }
 
-  const winnerLabel = snapshot.match.winner === "red" ? "红队胜利" : "蓝队胜利";
+  const room = snapshot.room;
+  const match = snapshot.match;
+  const winnerLabel = match.winner === "red" ? "红队胜利" : "蓝队胜利";
 
   return (
     <main className={styles.page}>
@@ -54,7 +90,7 @@ export default function ResultPage() {
         <p className={styles.kicker}>Winner</p>
         <h1>{winnerLabel}</h1>
         <p className={styles.summary}>
-          {snapshot.match.winReason === "hp_zero"
+          {match.winReason === "hp_zero"
             ? "有一方血量归零，战斗提前结束。"
             : "60 秒结束后，胜负已经判定。"}
         </p>
@@ -62,28 +98,32 @@ export default function ResultPage() {
         <div className={styles.scoreGrid}>
           <article className={styles.scoreCard}>
             <strong>红队血量</strong>
-            <span>{snapshot.match.teams.red.hpCurrent}</span>
+            <span>{match.teams.red.hpCurrent}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>蓝队血量</strong>
-            <span>{snapshot.match.teams.blue.hpCurrent}</span>
+            <span>{match.teams.blue.hpCurrent}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>红队答对</strong>
-            <span>{snapshot.match.totalCorrect.red}</span>
+            <span>{match.totalCorrect.red}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>蓝队答对</strong>
-            <span>{snapshot.match.totalCorrect.blue}</span>
+            <span>{match.totalCorrect.blue}</span>
           </article>
         </div>
 
         <div className={styles.actions}>
           <button
             className="primaryButton"
-            onClick={() => {
-              restartRoom(snapshot.room!.code);
-              router.push(`/room/${snapshot.room!.code}`);
+            onClick={async () => {
+              try {
+                await restartRoom(room.code);
+                router.push(`/room/${room.code}`);
+              } catch (nextError) {
+                setError(toUserMessage(nextError));
+              }
             }}
             type="button"
           >

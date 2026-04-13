@@ -20,6 +20,7 @@ const WRONG_COOLDOWN_MS = 1_000;
 const TIMEOUT_DAMAGE = 2;
 
 export type DemoRoom = {
+  id?: string;
   code: string;
   gradeLabel: string;
   capacity: 2 | 3 | 4 | 6;
