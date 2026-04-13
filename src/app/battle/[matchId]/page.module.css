@@ -1,0 +1,900 @@
+.page {
+  min-height: 100vh;
+  padding: 20px 16px 40px;
+}
+
+.battleShell {
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.header,
+.questionCard,
+.footer,
+.emptyState {
+  padding: 22px 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(84, 52, 27, 0.14);
+  background: rgba(255, 249, 240, 0.9);
+  box-shadow: 0 24px 70px rgba(68, 43, 19, 0.12);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+
+.header h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  color: #241816;
+}
+
+.kicker {
+  color: #9d431f;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+}
+
+.timerCard {
+  min-width: 148px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #222b3f 0%, #111723 100%);
+  color: #f7f5f0;
+  text-align: center;
+}
+
+.timerCard strong {
+  display: block;
+  font-size: 2.2rem;
+}
+
+.battlefield {
+  position: relative;
+  overflow: hidden;
+  min-height: 470px;
+  padding: 28px;
+  border-radius: 34px;
+  border: 1px solid rgba(101, 68, 35, 0.18);
+  background:
+    radial-gradient(circle at 50% 26%, rgba(255, 247, 209, 0.94), rgba(255, 247, 209, 0) 26%),
+    linear-gradient(180deg, #b8e0ff 0%, #d6edff 38%, #f3dcb0 38%, #c08b4f 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.26);
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.9fr) minmax(240px, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.damageVignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.damageLeft {
+  background:
+    linear-gradient(90deg, rgba(206, 36, 24, 0.42) 0%, rgba(206, 36, 24, 0.16) 18%, rgba(206, 36, 24, 0) 42%),
+    radial-gradient(circle at 18% 50%, rgba(255, 80, 80, 0.24), rgba(255, 80, 80, 0) 34%);
+  animation: damageVignetteLeft 0.46s ease-out;
+}
+
+.damageRight {
+  background:
+    linear-gradient(270deg, rgba(206, 36, 24, 0.42) 0%, rgba(206, 36, 24, 0.16) 18%, rgba(206, 36, 24, 0) 42%),
+    radial-gradient(circle at 82% 50%, rgba(255, 80, 80, 0.24), rgba(255, 80, 80, 0) 34%);
+  animation: damageVignetteRight 0.46s ease-out;
+}
+
+.skyLayer {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 44%;
+  pointer-events: none;
+}
+
+.cloud {
+  position: absolute;
+  display: block;
+  width: 170px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.52);
+  filter: blur(2px);
+}
+
+.cloud:nth-child(1) {
+  top: 48px;
+  left: 8%;
+}
+
+.cloud:nth-child(2) {
+  top: 78px;
+  left: 42%;
+  width: 210px;
+}
+
+.cloud:nth-child(3) {
+  top: 38px;
+  right: 11%;
+  width: 150px;
+}
+
+.sunGlow {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  width: 150px;
+  height: 150px;
+  margin-left: -75px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 238, 179, 0.95) 0%, rgba(255, 238, 179, 0) 70%);
+  pointer-events: none;
+}
+
+.camp {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 14px;
+  align-self: stretch;
+  padding: 20px 18px 18px;
+  border-radius: 28px;
+  border: 1px solid rgba(83, 54, 30, 0.16);
+  background: linear-gradient(180deg, rgba(255, 248, 235, 0.95), rgba(245, 223, 193, 0.88));
+  box-shadow: 0 18px 30px rgba(99, 64, 28, 0.14);
+  overflow: hidden;
+}
+
+.redCamp {
+  background:
+    linear-gradient(180deg, rgba(255, 244, 239, 0.96), rgba(251, 224, 210, 0.88));
+}
+
+.blueCamp {
+  background:
+    linear-gradient(180deg, rgba(241, 247, 255, 0.96), rgba(216, 231, 255, 0.9));
+}
+
+.firingCamp {
+  animation: campPulse 0.55s ease;
+}
+
+.injuredCamp {
+  animation: injuredShake 0.42s ease;
+}
+
+.campDamageFlash {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255, 120, 120, 0.58), rgba(255, 80, 80, 0.18) 38%, rgba(255, 80, 80, 0) 72%),
+    linear-gradient(180deg, rgba(194, 22, 22, 0.22), rgba(194, 22, 22, 0.06));
+  animation: campDamageFlash 0.42s ease-out;
+}
+
+.bannerPole {
+  position: absolute;
+  top: 22px;
+  width: 10px;
+  height: 108px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #7d522f 0%, #4d2d17 100%);
+}
+
+.redCamp .bannerPole {
+  left: 14px;
+}
+
+.blueCamp .bannerPole {
+  right: 14px;
+}
+
+.redCamp .bannerPole::after,
+.blueCamp .bannerPole::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  width: 58px;
+  height: 36px;
+  clip-path: polygon(0 0, 100% 0, 82% 50%, 100% 100%, 0 100%);
+}
+
+.redCamp .bannerPole::after {
+  left: 10px;
+  background: linear-gradient(135deg, #d23a28, #f38939);
+}
+
+.blueCamp .bannerPole::after {
+  right: 10px;
+  background: linear-gradient(135deg, #1958c9, #4fa5ff);
+  transform: scaleX(-1);
+}
+
+.teamHud {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.campLabel {
+  color: #81624d;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.teamHud h2 {
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  color: #241916;
+}
+
+.hpBadge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.hpBadge strong {
+  font-size: 1.5rem;
+  color: #241916;
+}
+
+.hpBadge span {
+  color: #7f6b57;
+  font-weight: 700;
+}
+
+.hpTrack {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(63, 42, 25, 0.14);
+}
+
+.hpLagFill,
+.hpFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.hpLagFill {
+  z-index: 1;
+  transition: width 0.95s ease-out;
+}
+
+.hpFill {
+  z-index: 2;
+  transition: width 0.22s ease;
+}
+
+.redFill {
+  background: linear-gradient(90deg, #cc432d, #f28d47);
+}
+
+.redLagFill {
+  background: rgba(255, 233, 168, 0.9);
+}
+
+.blueFill {
+  background: linear-gradient(90deg, #2f76df, #6ec0ff);
+}
+
+.blueLagFill {
+  background: rgba(255, 233, 168, 0.9);
+}
+
+.archerLine {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  min-height: 122px;
+  padding: 8px 0 0;
+}
+
+.archerLineRight {
+  justify-content: flex-end;
+}
+
+.archer {
+  position: relative;
+  display: block;
+  width: 34px;
+  height: 92px;
+  transform-origin: bottom center;
+}
+
+.cheer {
+  animation: cheer 0.5s ease;
+}
+
+.archerHead {
+  position: absolute;
+  top: 0;
+  left: 9px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f4d0aa;
+  border: 2px solid rgba(77, 46, 24, 0.18);
+}
+
+.archerBody {
+  position: absolute;
+  top: 18px;
+  left: 11px;
+  width: 12px;
+  height: 44px;
+  border-radius: 10px 10px 4px 4px;
+}
+
+.red .archerBody {
+  background: linear-gradient(180deg, #bf3e2e, #6a2016);
+}
+
+.blue .archerBody {
+  background: linear-gradient(180deg, #356fd2, #1b336a);
+}
+
+.archerBow {
+  position: absolute;
+  top: 22px;
+  width: 18px;
+  height: 40px;
+  border: 3px solid rgba(88, 53, 22, 0.9);
+  border-radius: 50%;
+  border-left-color: transparent;
+  background: transparent;
+}
+
+.red .archerBow {
+  right: -1px;
+}
+
+.blue .archerBow {
+  left: -1px;
+  transform: scaleX(-1);
+}
+
+.memberList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.memberList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.56);
+  color: #3f3127;
+  font-weight: 700;
+}
+
+.memberList em {
+  color: #9d4a23;
+  font-style: normal;
+}
+
+.centerStage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-self: stretch;
+  align-content: space-between;
+  gap: 18px;
+}
+
+.eventRibbon {
+  justify-self: center;
+  width: min(100%, 280px);
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(255, 252, 246, 0.84);
+  border: 1px solid rgba(108, 71, 38, 0.12);
+  text-align: center;
+  box-shadow: 0 18px 30px rgba(88, 57, 27, 0.12);
+}
+
+.eventRibbon strong {
+  display: block;
+  color: #2b211b;
+  line-height: 1.6;
+}
+
+.eventRibbon span {
+  color: #83684f;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.arrowField {
+  position: relative;
+  min-height: 220px;
+}
+
+.groundShadow {
+  position: absolute;
+  inset: auto 12% 16px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(83, 53, 26, 0.28) 0%, rgba(83, 53, 26, 0) 72%);
+}
+
+.projectile {
+  position: absolute;
+  top: 46%;
+  width: 116px;
+  height: 10px;
+  border-radius: 999px;
+  transform-origin: center;
+  box-shadow: 0 0 18px rgba(255, 207, 117, 0.44);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.projectile::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: -3px;
+  width: 0;
+  height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 18px solid currentColor;
+}
+
+.projectile::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: -14px;
+  width: 20px;
+  height: 20px;
+  clip-path: polygon(0 50%, 100% 0, 64% 50%, 100% 100%);
+  background: rgba(255, 238, 209, 0.95);
+  opacity: 0.95;
+}
+
+.projectileRed {
+  left: 6%;
+  color: #d74a29;
+  background: linear-gradient(90deg, #7f2514, #d74a29 42%, #ffd16d 100%);
+  animation: shootRight 0.8s cubic-bezier(0.19, 0.75, 0.32, 1);
+  animation-fill-mode: both;
+}
+
+.projectileBlue {
+  right: 6%;
+  color: #2672d9;
+  background: linear-gradient(90deg, #d2e7ff, #4d9fff 32%, #2058be 100%);
+  transform: scaleX(-1);
+  animation: shootLeft 0.8s cubic-bezier(0.19, 0.75, 0.32, 1);
+  animation-fill-mode: both;
+}
+
+.arrowGlow {
+  position: absolute;
+  inset: -6px -22px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 190, 122, 0) 0%, rgba(255, 190, 122, 0.3) 55%, rgba(255, 235, 188, 0.85) 100%);
+  filter: blur(6px);
+}
+
+.targetMarks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.targetMarks span {
+  position: absolute;
+  top: 40%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+}
+
+.targetMarks span:first-child {
+  right: 6%;
+}
+
+.targetMarks span:last-child {
+  left: 6%;
+}
+
+.hitFlash {
+  background: radial-gradient(circle, rgba(255, 241, 171, 0.98) 0%, rgba(255, 154, 84, 0.68) 34%, rgba(255, 154, 84, 0) 72%);
+  animation: hitFlash 0.45s ease-out;
+}
+
+.idleMark {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.timeoutDust {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(130, 89, 53, 0.18);
+  color: #6b4d34;
+  font-weight: 800;
+  animation: dustFade 0.8s ease;
+}
+
+.damageNumber {
+  position: absolute;
+  top: 28%;
+  z-index: 5;
+  font-size: clamp(1.6rem, 2.4vw, 2.3rem);
+  font-weight: 900;
+  color: #ff3b30;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.72),
+    0 0 20px rgba(171, 17, 17, 0.45);
+  pointer-events: none;
+}
+
+.damageLeftFloat {
+  left: 8%;
+  animation: floatDamageLeft 0.9s ease-out;
+}
+
+.damageRightFloat {
+  right: 8%;
+  animation: floatDamageRight 0.9s ease-out;
+}
+
+.impactBurst {
+  position: absolute;
+  top: 40%;
+  z-index: 4;
+  width: 84px;
+  height: 84px;
+  pointer-events: none;
+}
+
+.impactBurst span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 30px;
+  margin: -15px 0 0 -4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff4b3, #ff7c4d);
+  box-shadow: 0 0 14px rgba(255, 196, 92, 0.58);
+}
+
+.impactBurst span:nth-child(1) {
+  transform: translateY(-12px) rotate(0deg);
+}
+
+.impactBurst span:nth-child(2) {
+  transform: rotate(45deg);
+}
+
+.impactBurst span:nth-child(3) {
+  transform: rotate(90deg);
+}
+
+.impactBurst span:nth-child(4) {
+  transform: rotate(135deg);
+}
+
+.impactBurst span:nth-child(5) {
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7c3 0%, #ff7d48 78%);
+}
+
+.impactLeft {
+  left: 4%;
+  animation: impactBurst 0.55s ease-out;
+}
+
+.impactRight {
+  right: 4%;
+  animation: impactBurst 0.55s ease-out;
+}
+
+.questionCard {
+  display: grid;
+  gap: 14px;
+}
+
+.questionHeader {
+  display: flex;
+  justify-content: space-between;
+  color: #7b6451;
+  font-weight: 700;
+}
+
+.questionCard h2 {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  color: #1d1816;
+}
+
+.questionHint {
+  color: #645646;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
+@keyframes shootRight {
+  0% {
+    transform: translate(-26px, 12px) rotate(-11deg) scale(0.82);
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(248px, -24px) rotate(-3deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes shootLeft {
+  0% {
+    transform: translate(26px, 12px) rotate(-11deg) scaleX(-1) scale(0.82);
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-248px, -24px) rotate(-3deg) scaleX(-1) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes hitFlash {
+  0% {
+    transform: scale(0.45);
+    opacity: 0.18;
+  }
+
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes dustFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
+@keyframes cheer {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes campPulse {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes campDamageFlash {
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes injuredShake {
+  0% {
+    transform: translateX(0);
+  }
+
+  22% {
+    transform: translateX(-6px);
+  }
+
+  45% {
+    transform: translateX(5px);
+  }
+
+  70% {
+    transform: translateX(-3px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes damageVignetteLeft {
+  0% {
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes damageVignetteRight {
+  0% {
+    opacity: 0;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes floatDamageLeft {
+  0% {
+    opacity: 0;
+    transform: translate(-8px, 10px) scale(0.82);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(8px, -26px) scale(1.05);
+  }
+}
+
+@keyframes floatDamageRight {
+  0% {
+    opacity: 0;
+    transform: translate(8px, 10px) scale(0.82);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-8px, -26px) scale(1.05);
+  }
+}
+
+@keyframes impactBurst {
+  0% {
+    opacity: 0;
+    transform: scale(0.28);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+@media (max-width: 1080px) {
+  .battlefield {
+    grid-template-columns: 1fr;
+    min-height: unset;
+  }
+
+  .centerStage {
+    order: -1;
+  }
+
+  .arrowField {
+    min-height: 150px;
+  }
+
+  .targetMarks span:first-child,
+  .targetMarks span:last-child {
+    top: 54%;
+  }
+}
+
+@media (max-width: 720px) {
+  .footer,
+  .header,
+  .questionHeader,
+  .teamHud {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .battlefield,
+  .header,
+  .questionCard,
+  .footer {
+    padding: 18px;
+  }
+
+  .eventRibbon {
+    width: 100%;
+  }
+
+  .memberList li {
+    font-size: 0.94rem;
+  }
+}

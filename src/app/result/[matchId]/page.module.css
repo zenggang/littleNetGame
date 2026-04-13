@@ -1,0 +1,74 @@
+.page {
+  min-height: 100vh;
+  padding: 28px 18px 40px;
+}
+
+.card {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 20px;
+  padding: 34px;
+  border-radius: 32px;
+  background:
+    radial-gradient(circle at top center, rgba(255, 255, 255, 0.82), transparent 42%),
+    linear-gradient(160deg, rgba(245, 225, 192, 0.95), rgba(249, 245, 233, 0.92));
+  border: 1px solid rgba(106, 73, 42, 0.16);
+  box-shadow: 0 28px 80px rgba(54, 36, 17, 0.16);
+  text-align: center;
+}
+
+.kicker {
+  color: #9a3b27;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+}
+
+.card h1 {
+  font-size: clamp(2.4rem, 6vw, 4.2rem);
+  color: #1d1816;
+}
+
+.summary {
+  color: #635340;
+  line-height: 1.7;
+}
+
+.scoreGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.scoreCard {
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(255, 250, 242, 0.88);
+  border: 1px solid rgba(106, 73, 42, 0.12);
+}
+
+.scoreCard strong {
+  display: block;
+  color: #7d6654;
+  margin-bottom: 8px;
+}
+
+.scoreCard span {
+  font-size: 2rem;
+  color: #1c1714;
+  font-weight: 800;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .scoreGrid,
+  .actions {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+}
