@@ -34,6 +34,20 @@ type SubmitAnswerResult = {
   message: string;
 };
 
+type SessionTokenLike = {
+  access_token: string;
+};
+
+type RealtimeAuthClientLike = {
+  realtime: {
+    setAuth: (accessToken: string) => void;
+  };
+};
+
+type RealtimeSubscribableLike = {
+  subscribe: (callback?: (status: string, error?: Error) => void) => unknown;
+};
+
 function requireClient() {
   const client = getSupabaseBrowserClient();
   if (!client) {
@@ -343,11 +357,52 @@ export async function getMatchSnapshot(matchId: string) {
   return normalizeMatchSnapshot(data);
 }
 
-function subscribe(channel: RealtimeChannel) {
-  channel.subscribe();
+export async function startAuthedSubscription(
+  client: RealtimeAuthClientLike,
+  channel: RealtimeSubscribableLike,
+  getSession: () => Promise<SessionTokenLike>,
+  shouldSubscribe: () => boolean = () => true,
+  onStatus?: (status: string, error?: Error) => void,
+) {
+  const session = await getSession();
+  client.realtime.setAuth(session.access_token);
+
+  if (shouldSubscribe()) {
+    channel.subscribe(onStatus);
+  }
+}
+
+function subscribe(channel: RealtimeChannel, onReady?: () => void) {
+  const client = requireClient();
+  let cancelled = false;
+
+  void startAuthedSubscription(
+    client,
+    channel,
+    async () => {
+      const session = await ensureSession();
+      if (!session) {
+        throw new Error("AUTH_REQUIRED");
+      }
+      return { access_token: session.access_token };
+    },
+    () => !cancelled,
+    (status, error) => {
+      if (status === "SUBSCRIBED") {
+        onReady?.();
+        return;
+      }
+
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        console.error("Supabase realtime subscribe failed", error?.message ?? status);
+      }
+    },
+  ).catch((error) => {
+    console.error("Supabase realtime auth sync failed", error);
+  });
 
   return () => {
-    const client = requireClient();
+    cancelled = true;
     client.removeChannel(channel);
   };
 }
@@ -375,7 +430,7 @@ export function subscribeToRoom(roomId: string, callback: () => void) {
       filter: `room_id=eq.${roomId}`,
     }, callback);
 
-  return subscribe(channel);
+  return subscribe(channel, callback);
 }
 
 export function subscribeToMatch(
@@ -429,5 +484,5 @@ export function subscribeToMatch(
       filter: `match_id=eq.${matchId}`,
     }, callback);
 
-  return subscribe(channel);
+  return subscribe(channel, callback);
 }

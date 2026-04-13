@@ -71,6 +71,18 @@ export default function RoomPage() {
     });
   }, [hydrated, loadSnapshot, snapshot?.room?.id]);
 
+  useEffect(() => {
+    if (!hydrated || !snapshot?.room || snapshot.room.activeMatchId) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void loadSnapshot();
+    }, 1500);
+
+    return () => window.clearInterval(timer);
+  }, [hydrated, loadSnapshot, snapshot?.room, snapshot?.room?.activeMatchId]);
+
   const redMembers = snapshot?.members.filter((member) => member.team === "red") ?? [];
   const blueMembers = snapshot?.members.filter((member) => member.team === "blue") ?? [];
 

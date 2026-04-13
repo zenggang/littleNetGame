@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "npx --yes tsx --test src/lib/game/*.test.ts",
-    "test:watch": "npx --yes tsx --test --watch src/lib/game/*.test.ts"
+    "test": "npx --yes tsx --test src/lib/**/*.test.ts",
+    "test:watch": "npx --yes tsx --test --watch src/lib/**/*.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
