@@ -7,13 +7,10 @@ import { RoomPrepScreen } from "@/components/game-shell/RoomPrepScreen";
 import { useRoomSession } from "@/lib/game/client/use-room-session";
 import {
   getRoomSnapshot,
-  joinRoom,
   readPlayerSession,
-  startMatch,
-  subscribeToRoom,
-  switchTeam,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import type { CoordinatorRoomSnapshot } from "@/lib/game/protocol/coordinator";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
@@ -58,44 +55,27 @@ export default function RoomPage() {
     loadSnapshot();
   }, [hydrated, loadSnapshot]);
 
-  useEffect(() => {
-    const roomId = snapshot?.room?.id;
-
-    if (!hydrated || !roomId) {
-      return;
-    }
-
-    return subscribeToRoom(roomId, () => {
-      loadSnapshot();
-    });
-  }, [hydrated, loadSnapshot, snapshot?.room?.id]);
-
-  useEffect(() => {
-    if (!hydrated || !snapshot?.room || snapshot.room.activeMatchId) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      void loadSnapshot();
-    }, 1500);
-
-    return () => window.clearInterval(timer);
-  }, [hydrated, loadSnapshot, snapshot?.room, snapshot?.room?.activeMatchId]);
-
-  const redMembers = snapshot?.members.filter((member) => member.team === "red") ?? [];
-  const blueMembers = snapshot?.members.filter((member) => member.team === "blue") ?? [];
-
-  useEffect(() => {
-    if (snapshot?.room?.activeMatchId) {
-      router.push(`/battle/${snapshot.room.activeMatchId}`);
-    }
-  }, [router, snapshot?.room?.activeMatchId]);
-
   const roomSession = useRoomSession({
     roomCode,
     playerId: snapshot?.session?.playerId ?? "",
     nickname,
+    initialSnapshot: snapshot && snapshot.session
+      ? {
+          ...snapshot,
+          session: snapshot.session,
+        } satisfies CoordinatorRoomSnapshot
+      : null,
   });
+  const liveSnapshot = roomSession.snapshot ?? null;
+  const currentMembers = liveSnapshot?.members ?? snapshot?.members ?? [];
+  const redMembers = currentMembers.filter((member) => member.team === "red");
+  const blueMembers = currentMembers.filter((member) => member.team === "blue");
+
+  useEffect(() => {
+    if (liveSnapshot?.room?.activeMatchId) {
+      router.push(`/battle/${liveSnapshot.room.activeMatchId}`);
+    }
+  }, [liveSnapshot?.room?.activeMatchId, router]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -107,7 +87,7 @@ export default function RoomPage() {
     );
   }
 
-  if (!snapshot.room) {
+  if (!liveSnapshot?.room && !snapshot.room) {
     return (
       <main className={styles.page}>
         <section className={styles.emptyState}>
@@ -120,7 +100,9 @@ export default function RoomPage() {
     );
   }
 
-  const room = snapshot.room;
+  const room = (liveSnapshot?.room ?? snapshot.room)!;
+  const viewer = liveSnapshot?.viewer ?? snapshot.viewer;
+  const canStart = liveSnapshot?.canStart ?? snapshot.canStart;
 
   return (
     <main className={styles.page}>
@@ -129,7 +111,7 @@ export default function RoomPage() {
           <p className={styles.channelHint}>正在连接战前编队频道…</p>
         ) : null}
 
-        {!snapshot.viewer ? (
+        {!viewer ? (
           <section className={styles.joinPanel}>
             <h2>先加入房间</h2>
             <input
@@ -144,9 +126,11 @@ export default function RoomPage() {
               onClick={async () => {
                 try {
                   setBusy(true);
-                  await joinRoom({ roomCode, nickname });
+                  const result = await roomSession.joinRoom(nickname);
+                  if (!result.ok) {
+                    throw new Error(result.message);
+                  }
                   setError("");
-                  await loadSnapshot();
                 } catch (nextError) {
                   setError(toUserMessage(nextError));
                 } finally {
@@ -163,15 +147,17 @@ export default function RoomPage() {
         <RoomPrepScreen
           blueMembers={blueMembers}
           busy={busy}
-          canStart={snapshot.canStart}
-          canJoinTeam={Boolean(snapshot.viewer) && room.status === "open"}
+          canStart={canStart}
+          canJoinTeam={Boolean(viewer) && room.status === "open"}
           error={error}
-          isHost={snapshot.viewer?.playerId === room.hostPlayerId}
+          isHost={viewer?.playerId === room.hostPlayerId}
           onCopyCode={() => navigator.clipboard.writeText(room.code)}
           onJoinTeam={async (team) => {
             try {
-              await switchTeam(roomCode, team);
-              await loadSnapshot();
+              const result = await roomSession.switchTeam(team);
+              if (!result.ok) {
+                throw new Error(result.message);
+              }
             } catch (nextError) {
               setError(toUserMessage(nextError));
             }
@@ -179,8 +165,11 @@ export default function RoomPage() {
           onStart={async () => {
             try {
               setBusy(true);
-              const match = await startMatch(roomCode);
-              router.push(`/battle/${match.id}`);
+              const result = await roomSession.startMatch();
+              if (!result.ok || !result.matchId) {
+                throw new Error(result.message);
+              }
+              router.push(`/battle/${result.matchId}`);
             } catch (nextError) {
               setError(toUserMessage(nextError));
             } finally {

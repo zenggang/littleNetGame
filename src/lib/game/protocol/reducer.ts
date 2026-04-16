@@ -16,7 +16,10 @@ export function reduceMatchEvent(state: MatchState, event: MatchEvent): MatchSta
     };
   }
 
-  if (event.type === "match.answer_resolved") {
+  if (
+    event.type === "match.answer_resolved" ||
+    event.type === "match.question_timed_out"
+  ) {
     return {
       ...state,
       lastSeq: event.seq,

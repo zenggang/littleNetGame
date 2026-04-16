@@ -1,8 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import type {
+  CoordinatorCommand,
+  CoordinatorMessage,
+  CoordinatorRoomSnapshot,
+} from "@/lib/game/protocol/coordinator";
+import type { TeamName } from "@/lib/game/types";
+
+type CommandResult = {
+  ok: boolean;
+  message: string;
+  matchId?: string;
+};
+
+type PendingCommand = {
+  resolve: (value: CommandResult) => void;
+  reject: (reason?: unknown) => void;
+};
+
+type RoomCommand =
+  | Omit<Extract<CoordinatorCommand, { type: "room.join" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "room.switch_team" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "room.start_match" }>, "commandId">;
 
 export function createRoomSocketFactory(
   openSocket: typeof openCoordinatorSocket,
@@ -14,14 +36,25 @@ export function createRoomSocketFactory(
   }) => openSocket(input);
 }
 
+/**
+ * RoomSession 负责把页面从 snapshot + subscribe 迁到协调层主导：
+ * - socket 断开后自动重连
+ * - 统一处理 room snapshot
+ * - 统一把 join / switch / start 命令转成 command.result Promise
+ */
 export function useRoomSession(input: {
   roomCode: string;
   playerId: string;
   nickname: string;
+  initialSnapshot?: CoordinatorRoomSnapshot | null;
 }) {
-  const { nickname, playerId, roomCode } = input;
-  const [socketConnected, setSocketConnected] = useState(false);
-  const canConnect = Boolean(playerId && nickname);
+  const { initialSnapshot = null, nickname, playerId, roomCode } = input;
+  const [connected, setConnected] = useState(false);
+  const [snapshot, setSnapshot] = useState<CoordinatorRoomSnapshot | null>(initialSnapshot);
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const pendingRef = useRef(new Map<string, PendingCommand>());
+  const canConnect = Boolean(playerId && nickname && roomCode);
 
   useEffect(() => {
     if (!canConnect) {
@@ -29,27 +62,111 @@ export function useRoomSession(input: {
     }
 
     const openRoomSocket = createRoomSocketFactory(openCoordinatorSocket);
-    let cancelled = false;
-    let socket: WebSocket | null = null;
+    let disposed = false;
 
-    void openRoomSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
-      if (cancelled) {
-        nextSocket.close();
+    const rejectPending = (reason: string) => {
+      pendingRef.current.forEach((pending) => {
+        pending.reject(new Error(reason));
+      });
+      pendingRef.current.clear();
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimerRef.current !== null) {
         return;
       }
 
-      socket = nextSocket;
-      nextSocket.addEventListener("open", () => setSocketConnected(true));
-      nextSocket.addEventListener("close", () => {
-        setSocketConnected(false);
-      });
-    });
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        void connect();
+      }, 600);
+    };
+
+    const handleMessage = (event: MessageEvent<string>) => {
+      const message = JSON.parse(event.data) as CoordinatorMessage;
+
+      if (message.type === "room.snapshot") {
+        setSnapshot(message.payload);
+        return;
+      }
+
+      if (message.type === "command.result") {
+        const pending = pendingRef.current.get(message.payload.commandId);
+
+        if (!pending) {
+          return;
+        }
+
+        pendingRef.current.delete(message.payload.commandId);
+        pending.resolve(message.payload);
+      }
+    };
+
+    const connect = async () => {
+      const socket = await openRoomSocket({ roomCode, playerId, nickname });
+
+      if (disposed) {
+        socket.close();
+        return;
+      }
+
+      socketRef.current = socket;
+      socket.addEventListener("open", () => setConnected(true), { once: true });
+      socket.addEventListener("message", handleMessage);
+      socket.addEventListener("close", () => {
+        setConnected(false);
+        rejectPending("协调层连接已断开");
+        scheduleReconnect();
+      }, { once: true });
+    };
+
+    void connect();
 
     return () => {
-      cancelled = true;
-      socket?.close();
+      disposed = true;
+      setConnected(false);
+      rejectPending("房间会话已关闭");
+
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+
+      socketRef.current?.close();
+      socketRef.current = null;
     };
   }, [canConnect, nickname, playerId, roomCode]);
 
-  return { connected: canConnect && socketConnected };
+  const sendCommand = (command: RoomCommand) =>
+    new Promise<CommandResult>((resolve, reject) => {
+      const socket = socketRef.current;
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        reject(new Error("协调层未连接"));
+        return;
+      }
+
+      const commandId = crypto.randomUUID();
+      pendingRef.current.set(commandId, { resolve, reject });
+      socket.send(JSON.stringify({ ...command, commandId }));
+    });
+
+  return {
+    connected,
+    snapshot,
+    joinRoom: (nextNickname: string) =>
+      sendCommand({
+        type: "room.join",
+        payload: { nickname: nextNickname },
+      }),
+    switchTeam: (team: TeamName) =>
+      sendCommand({
+        type: "room.switch_team",
+        payload: { team },
+      }),
+    startMatch: () =>
+      sendCommand({
+        type: "room.start_match",
+      }),
+  };
 }

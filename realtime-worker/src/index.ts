@@ -9,6 +9,8 @@ export interface Env {
     };
   };
   COORDINATOR_SHARED_SECRET: string;
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
 }
 
 const worker = {

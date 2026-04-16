@@ -12,11 +12,9 @@ import { matchStateFromSnapshot } from "@/lib/game/protocol/from-supabase-snapsh
 import {
   getMatchSnapshot,
   restartRoom,
-  submitAnswer,
-  subscribeToMatch,
-  tickMatch,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import type { CoordinatorMatchSnapshot } from "@/lib/game/protocol/coordinator";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
@@ -55,19 +53,6 @@ export default function BattlePage() {
   }, [hydrated, loadSnapshot]);
 
   useEffect(() => {
-    const roomId = snapshot?.room?.id;
-    const activeMatchId = snapshot?.match?.id;
-
-    if (!hydrated || !roomId || !activeMatchId) {
-      return;
-    }
-
-    return subscribeToMatch(roomId, activeMatchId, () => {
-      loadSnapshot();
-    });
-  }, [hydrated, loadSnapshot, snapshot?.match?.id, snapshot?.room?.id]);
-
-  useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(Date.now());
     }, 250);
@@ -75,46 +60,24 @@ export default function BattlePage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (snapshot?.match?.phase === "finished") {
-      router.push(`/result/${matchId}`);
-    }
-  }, [matchId, router, snapshot?.match?.phase]);
-
   const matchSession = useMatchSession({
     roomCode: snapshot?.room?.code ?? "",
     playerId: snapshot?.session?.playerId ?? "",
     nickname: snapshot?.session?.nickname ?? "",
+    initialSnapshot: snapshot && snapshot.session
+      ? {
+          ...snapshot,
+          session: snapshot.session,
+        } satisfies CoordinatorMatchSnapshot
+      : null,
   });
+  const liveSnapshot = matchSession.snapshot ?? snapshot;
 
   useEffect(() => {
-    if (!snapshot?.match) {
-      return;
+    if (liveSnapshot?.match?.phase === "finished") {
+      router.push(`/result/${matchId}`);
     }
-
-    let deadline = Date.parse(snapshot.match.endsAt);
-
-    if (snapshot.match.phase === "countdown") {
-      deadline = Date.parse(snapshot.match.countdownEndsAt);
-    }
-
-    if (snapshot.match.phase === "active") {
-      deadline = Math.min(deadline, Date.parse(snapshot.match.questionDeadlineAt));
-    }
-
-    const delay = Math.max(0, deadline - Date.now() + 50);
-    const timer = window.setTimeout(() => {
-      tickMatch(matchId)
-        .then(() => loadSnapshot())
-        .catch(() => undefined);
-    }, delay);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    loadSnapshot,
-    matchId,
-    snapshot?.match,
-  ]);
+  }, [liveSnapshot?.match?.phase, matchId, router]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -126,7 +89,7 @@ export default function BattlePage() {
     );
   }
 
-  if (!snapshot.match || !snapshot.room) {
+  if (!liveSnapshot?.match || !liveSnapshot?.room) {
     return (
       <main className={styles.page}>
         <section className={styles.emptyState}>
@@ -139,14 +102,13 @@ export default function BattlePage() {
     );
   }
 
-  const room = snapshot.room;
-  const match = snapshot.match;
-  const state = matchSession.lastSeq > 0
-    ? matchSession
-    : matchStateFromSnapshot({ match });
+  const room = liveSnapshot.room!;
+  const match = liveSnapshot.match!;
+  const viewer = liveSnapshot.viewer;
+  const state = matchStateFromSnapshot({ match });
   const viewModel = buildBattleViewModel(state, now);
-  const cooldownUntil = snapshot.viewer
-    ? match.cooldowns[snapshot.viewer.playerId] ?? 0
+  const cooldownUntil = viewer
+    ? match.cooldowns[viewer.playerId] ?? 0
     : 0;
   const isCoolingDown = cooldownUntil > now;
 
@@ -178,12 +140,11 @@ export default function BattlePage() {
           >
             <QuestionForm
               question={match.currentQuestion}
-              disabled={match.phase !== "active" || isCoolingDown || !snapshot.viewer}
+              disabled={match.phase !== "active" || isCoolingDown || !viewer}
               onSubmit={async (payload) => {
                 try {
-                  const result = await submitAnswer(matchId, payload);
+                  const result = await matchSession.submitAnswer(payload);
                   setFeedback(result.message);
-                  await loadSnapshot();
                 } catch (nextError) {
                   setError(toUserMessage(nextError));
                 }

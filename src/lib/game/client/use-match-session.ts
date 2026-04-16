@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
-import type { MatchEvent } from "@/lib/game/protocol/events";
-import { reduceMatchEvent } from "@/lib/game/protocol/reducer";
-import {
-  createEmptyMatchState,
-  type MatchState,
-} from "@/lib/game/protocol/state";
+import type {
+  CoordinatorCommand,
+  CoordinatorMatchSnapshot,
+  CoordinatorMessage,
+} from "@/lib/game/protocol/coordinator";
+
+type CommandResult = {
+  ok: boolean;
+  message: string;
+  matchId?: string;
+};
+
+type PendingCommand = {
+  resolve: (value: CommandResult) => void;
+  reject: (reason?: unknown) => void;
+};
 
 export function createMatchSocketFactory(
   openSocket: typeof openCoordinatorSocket,
@@ -20,14 +30,24 @@ export function createMatchSocketFactory(
   }) => openSocket(input);
 }
 
+/**
+ * MatchSession 把 battle 页需要的两类能力都收口在同一处：
+ * - 维护 coordinator 推送的 match snapshot
+ * - 负责 submit_answer 命令与弱网重连后的状态恢复
+ */
 export function useMatchSession(input: {
   roomCode: string;
   playerId: string;
   nickname: string;
+  initialSnapshot?: CoordinatorMatchSnapshot | null;
 }) {
-  const { nickname, playerId, roomCode } = input;
-  const [state, setState] = useState<MatchState>(createEmptyMatchState());
-  const canConnect = Boolean(playerId && nickname);
+  const { initialSnapshot = null, nickname, playerId, roomCode } = input;
+  const [connected, setConnected] = useState(false);
+  const [snapshot, setSnapshot] = useState<CoordinatorMatchSnapshot | null>(initialSnapshot);
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const pendingRef = useRef(new Map<string, PendingCommand>());
+  const canConnect = Boolean(playerId && nickname && roomCode);
 
   useEffect(() => {
     if (!canConnect) {
@@ -35,36 +55,127 @@ export function useMatchSession(input: {
     }
 
     const openMatchSocket = createMatchSocketFactory(openCoordinatorSocket);
-    let cancelled = false;
-    let socket: WebSocket | null = null;
+    let disposed = false;
 
-    void openMatchSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
-      if (cancelled) {
-        nextSocket.close();
+    const rejectPending = (reason: string) => {
+      pendingRef.current.forEach((pending) => {
+        pending.reject(new Error(reason));
+      });
+      pendingRef.current.clear();
+    };
+
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimerRef.current !== null) {
         return;
       }
 
-      socket = nextSocket;
-      nextSocket.addEventListener("message", (event) => {
-        try {
-          const data = JSON.parse(event.data) as { event?: MatchEvent };
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        void connect();
+      }, 600);
+    };
 
-          if (!data.event) {
-            return;
+    const handleMessage = (event: MessageEvent<string>) => {
+      const message = JSON.parse(event.data) as CoordinatorMessage;
+
+      if (message.type === "match.snapshot") {
+        setSnapshot(message.payload);
+        return;
+      }
+
+      if (message.type === "room.snapshot") {
+        setSnapshot((current) => {
+          if (!current) {
+            return current;
           }
 
-          setState((current) => reduceMatchEvent(current, data.event!));
-        } catch {
-          // 当前协调层还在搭骨架阶段，先忽略非事件消息，避免把连接探活消息当成错误。
+          return {
+            ...current,
+            room: message.payload.room,
+            members: message.payload.members,
+            viewer: message.payload.viewer,
+            session: message.payload.session,
+          };
+        });
+        return;
+      }
+
+      if (message.type === "command.result") {
+        const pending = pendingRef.current.get(message.payload.commandId);
+
+        if (!pending) {
+          return;
         }
-      });
-    });
+
+        pendingRef.current.delete(message.payload.commandId);
+        pending.resolve(message.payload);
+      }
+    };
+
+    const connect = async () => {
+      const socket = await openMatchSocket({ roomCode, playerId, nickname });
+
+      if (disposed) {
+        socket.close();
+        return;
+      }
+
+      socketRef.current = socket;
+      socket.addEventListener("open", () => setConnected(true), { once: true });
+      socket.addEventListener("message", handleMessage);
+      socket.addEventListener("close", () => {
+        setConnected(false);
+        rejectPending("协调层连接已断开");
+        scheduleReconnect();
+      }, { once: true });
+    };
+
+    void connect();
 
     return () => {
-      cancelled = true;
-      socket?.close();
+      disposed = true;
+      setConnected(false);
+      rejectPending("对局会话已关闭");
+
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+
+      socketRef.current?.close();
+      socketRef.current = null;
     };
   }, [canConnect, nickname, playerId, roomCode]);
 
-  return state;
+  const sendCommand = (
+    command: Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">,
+  ) =>
+    new Promise<CommandResult>((resolve, reject) => {
+      const socket = socketRef.current;
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        reject(new Error("协调层未连接"));
+        return;
+      }
+
+      const commandId = crypto.randomUUID();
+      pendingRef.current.set(commandId, { resolve, reject });
+      socket.send(JSON.stringify({ ...command, commandId }));
+    });
+
+  return {
+    connected,
+    snapshot,
+    submitAnswer: (answer: {
+      value?: string;
+      quotient?: string;
+      remainder?: string;
+    }) =>
+      sendCommand({
+        type: "match.submit_answer",
+        payload: {
+          answer,
+        },
+      }),
+  };
 }

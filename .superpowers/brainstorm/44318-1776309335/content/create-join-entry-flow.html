@@ -1,0 +1,332 @@
+<style>
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .flow-card {
+    display: grid;
+    gap: 14px;
+  }
+
+  .phone {
+    position: relative;
+    min-height: 620px;
+    padding: 14px;
+    border-radius: 36px;
+    background: linear-gradient(180deg, #111a27 0%, #223246 100%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  }
+
+  .screen {
+    position: relative;
+    overflow: hidden;
+    min-height: 100%;
+    padding: 18px;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #f7e4bc 0%, #dd9255 100%);
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(34, 24, 14, 0.8);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .pill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 250, 243, 0.74);
+  }
+
+  .hero {
+    padding: 18px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 244, 197, 0.92) 0%, rgba(255, 244, 197, 0) 34%),
+      linear-gradient(180deg, #c5e2ff 0%, #d3edff 40%, #eacb97 40%, #996031 100%);
+    display: grid;
+    gap: 12px;
+    min-height: 210px;
+  }
+
+  .title {
+    font-size: 28px;
+    line-height: 1;
+    font-weight: 900;
+    color: #22150d;
+  }
+
+  .sub {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(42, 28, 17, 0.72);
+    font-weight: 700;
+  }
+
+  .battle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 10px;
+  }
+
+  .camp {
+    width: 38%;
+    height: 78px;
+    border-radius: 18px;
+    background: rgba(255, 252, 246, 0.82);
+  }
+
+  .arrow {
+    width: 64px;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #913a29 0%, #ffce6a 100%);
+    transform: rotate(-10deg);
+  }
+
+  .button-primary,
+  .button-secondary {
+    padding: 14px 16px;
+    border-radius: 18px;
+    text-align: center;
+    font-weight: 900;
+  }
+
+  .button-primary {
+    background: linear-gradient(135deg, #bf3928 0%, #ef7b2d 100%);
+    color: #fff7ee;
+  }
+
+  .button-secondary {
+    background: rgba(20, 82, 184, 0.92);
+    color: #f4f9ff;
+  }
+
+  .sheet,
+  .modal,
+  .fullscreen {
+    border-radius: 24px;
+    background: rgba(255, 250, 243, 0.92);
+    box-shadow: 0 14px 30px rgba(62, 38, 19, 0.18);
+    display: grid;
+    gap: 10px;
+  }
+
+  .sheet {
+    margin-top: auto;
+    padding: 14px;
+  }
+
+  .sheet-handle {
+    width: 56px;
+    height: 5px;
+    margin: 0 auto 2px;
+    border-radius: 999px;
+    background: rgba(90, 69, 49, 0.2);
+  }
+
+  .field,
+  .choice {
+    height: 42px;
+    border-radius: 14px;
+    background: rgba(112, 86, 59, 0.12);
+  }
+
+  .choice-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .modal-wrap {
+    position: relative;
+    min-height: 300px;
+  }
+
+  .modal {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 92px;
+    padding: 16px;
+  }
+
+  .dim {
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    background: rgba(12, 17, 24, 0.36);
+  }
+
+  .fullscreen {
+    padding: 16px;
+    min-height: 318px;
+  }
+
+  .head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 900;
+    color: #25180f;
+  }
+
+  .x {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(109, 83, 59, 0.12);
+  }
+
+  .note {
+    display: grid;
+    gap: 8px;
+    color: #5f4935;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .recommend {
+    display: inline-flex;
+    align-self: start;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #103d8e;
+    color: #f3f8ff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1200px) {
+    .flow-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>第三问：点击“创建游戏 / 加入游戏”后，用哪种承接方式？</h2>
+<p class="subtitle">这是把首页从“网站表单页”改成“移动端游戏入口”的关键一步。我建议选 A。</p>
+
+<div class="flow-grid">
+  <div class="option flow-card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>A. 底部抽屉承接</h3>
+      <p>推荐。保留首页战场封面，点击按钮后从底部拉起创建或加入面板，最符合竖屏游戏操作习惯。</p>
+    </div>
+    <span class="recommend">推荐</span>
+    <div class="phone">
+      <div class="screen">
+        <div class="top">
+          <span class="pill">Lv.2 小队</span>
+          <span class="pill">昵称</span>
+        </div>
+        <div class="hero">
+          <div class="title">小小数学战场</div>
+          <div class="sub">点击按钮后，不离开大厅，只在底部拉起操作层</div>
+          <div class="battle-row">
+            <div class="camp"></div>
+            <div class="arrow"></div>
+            <div class="camp"></div>
+          </div>
+        </div>
+        <div class="button-primary">创建游戏</div>
+        <div class="button-secondary">加入游戏</div>
+        <div class="sheet">
+          <div class="sheet-handle"></div>
+          <div class="head-row"><span>创建游戏</span><span>2/3/4/6</span></div>
+          <div class="choice-row">
+            <div class="choice"></div>
+            <div class="choice"></div>
+          </div>
+          <div class="field"></div>
+          <div class="button-primary">立即建房</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：最像手游，单手操作友好，首页氛围不被打断。</div>
+      <div>风险：抽屉层级、动效和键盘顶起需要设计清楚。</div>
+    </div>
+  </div>
+
+  <div class="option flow-card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>B. 居中弹窗承接</h3>
+      <p>更像传统“弹窗确认”，容易理解，但在竖屏里空间偏紧。</p>
+    </div>
+    <div class="phone">
+      <div class="screen modal-wrap">
+        <div class="top">
+          <span class="pill">Lv.2 小队</span>
+          <span class="pill">昵称</span>
+        </div>
+        <div class="hero">
+          <div class="title">小小数学战场</div>
+          <div class="sub">点击后浮在中间</div>
+          <div class="battle-row">
+            <div class="camp"></div>
+            <div class="arrow"></div>
+            <div class="camp"></div>
+          </div>
+        </div>
+        <div class="button-primary">创建游戏</div>
+        <div class="button-secondary">加入游戏</div>
+        <div class="dim"></div>
+        <div class="modal">
+          <div class="head-row"><span>加入游戏</span><span class="x"></span></div>
+          <div class="field"></div>
+          <div class="field"></div>
+          <div class="button-secondary">进入房间</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：形式直观，符合你说的“点击后弹窗”。</div>
+      <div>风险：移动端键盘弹起后容易挤压布局，游戏感不如抽屉自然。</div>
+    </div>
+  </div>
+
+  <div class="option flow-card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>C. 全屏面板承接</h3>
+      <p>按钮点击后切入一个独立全屏面板，仪式感强，但步骤感更重。</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="top">
+          <span class="pill">返回</span>
+          <span class="pill">帮助</span>
+        </div>
+        <div class="fullscreen">
+          <div class="head-row"><span>创建游戏</span><span class="x"></span></div>
+          <div class="sub">像进入一个独立菜单页</div>
+          <div class="choice-row">
+            <div class="choice"></div>
+            <div class="choice"></div>
+          </div>
+          <div class="choice-row">
+            <div class="choice"></div>
+            <div class="choice"></div>
+          </div>
+          <div class="field"></div>
+          <div class="field"></div>
+          <div class="button-primary">创建并进入房间</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：空间最大，适合以后功能变多。</div>
+      <div>风险：当前 MVP 会显得步骤过重，破坏“开房即开打”的轻节奏。</div>
+    </div>
+  </div>
+</div>

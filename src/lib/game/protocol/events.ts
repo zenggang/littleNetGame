@@ -19,6 +19,15 @@ export type MatchEvent =
     }
   | {
       seq: number;
+      type: "match.question_timed_out";
+      serverTime: number;
+      payload: {
+        damage: number;
+        hp: Record<TeamName, number>;
+      };
+    }
+  | {
+      seq: number;
       type: "match.answer_resolved";
       serverTime: number;
       payload: {

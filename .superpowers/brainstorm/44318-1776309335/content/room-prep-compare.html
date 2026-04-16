@@ -1,0 +1,348 @@
+<style>
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .choice-card {
+    display: grid;
+    gap: 14px;
+  }
+
+  .phone {
+    position: relative;
+    min-height: 650px;
+    padding: 14px;
+    border-radius: 36px;
+    background: linear-gradient(180deg, #111a27 0%, #223246 100%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  }
+
+  .screen {
+    position: relative;
+    overflow: hidden;
+    min-height: 100%;
+    padding: 18px;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #f7e4bc 0%, #dd9255 100%);
+    display: grid;
+    gap: 14px;
+    align-content: start;
+  }
+
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(34, 24, 14, 0.82);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .pill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 250, 243, 0.74);
+  }
+
+  .hero {
+    padding: 16px 18px;
+    border-radius: 22px;
+    background: rgba(255, 249, 240, 0.62);
+    display: grid;
+    gap: 6px;
+  }
+
+  .title {
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 900;
+    color: #22150d;
+  }
+
+  .sub {
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(42, 28, 17, 0.72);
+    font-weight: 700;
+  }
+
+  .battlefield {
+    padding: 16px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 244, 197, 0.92) 0%, rgba(255, 244, 197, 0) 34%),
+      linear-gradient(180deg, #c5e2ff 0%, #d3edff 40%, #eacb97 40%, #996031 100%);
+    min-height: 290px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .battle-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #4e3522;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .camp-row {
+    display: grid;
+    grid-template-columns: 1fr 56px 1fr;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .camp {
+    padding: 12px;
+    border-radius: 20px;
+    background: rgba(255, 252, 246, 0.84);
+    display: grid;
+    gap: 8px;
+    min-height: 156px;
+  }
+
+  .camp.red {
+    box-shadow: inset 0 0 0 1px rgba(199, 64, 44, 0.18);
+  }
+
+  .camp.blue {
+    box-shadow: inset 0 0 0 1px rgba(37, 104, 201, 0.18);
+  }
+
+  .camp h4 {
+    font-size: 15px;
+    color: #281a12;
+  }
+
+  .member {
+    height: 28px;
+    border-radius: 12px;
+    background: rgba(102, 76, 51, 0.14);
+  }
+
+  .mid-mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 250, 242, 0.82);
+  }
+
+  .button-primary,
+  .button-secondary {
+    padding: 14px 16px;
+    border-radius: 18px;
+    text-align: center;
+    font-weight: 900;
+  }
+
+  .button-primary {
+    background: linear-gradient(135deg, #bf3928 0%, #ef7b2d 100%);
+    color: #fff7ee;
+  }
+
+  .button-secondary {
+    background: rgba(255, 250, 242, 0.86);
+    color: #352619;
+  }
+
+  .stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .list-card {
+    padding: 14px;
+    border-radius: 20px;
+    background: rgba(255, 250, 243, 0.86);
+    display: grid;
+    gap: 8px;
+  }
+
+  .list-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(112, 86, 59, 0.1);
+    font-weight: 800;
+    color: #2f2117;
+  }
+
+  .invite {
+    padding: 14px;
+    border-radius: 22px;
+    background: rgba(255, 250, 243, 0.9);
+    display: grid;
+    gap: 8px;
+  }
+
+  .code {
+    padding: 14px 12px;
+    border-radius: 16px;
+    background: #fff7ea;
+    text-align: center;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    color: #23160f;
+  }
+
+  .note {
+    display: grid;
+    gap: 8px;
+    color: #5f4935;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .recommend {
+    display: inline-flex;
+    align-self: start;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #103d8e;
+    color: #f3f8ff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1200px) {
+    .compare-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>第四问：房间页更应该像哪一种“准备室”？</h2>
+<p class="subtitle">这是开战前的核心页面，决定它像“网页等待页”还是“游戏编队室”。我建议选 A。</p>
+
+<div class="compare-grid">
+  <div class="option choice-card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>A. 编队战场式准备室</h3>
+      <p>推荐。房间页直接做成红蓝对阵、队伍站位、房间码、准备状态和开战按钮合一的游戏编队界面。</p>
+    </div>
+    <span class="recommend">推荐</span>
+    <div class="phone">
+      <div class="screen">
+        <div class="top">
+          <span class="pill">房间 ABCD</span>
+          <span class="pill">复制 / 邀请</span>
+        </div>
+        <div class="hero">
+          <div class="title">战前编队</div>
+          <div class="sub">玩家直接点营地换边，房主在同页一键开战</div>
+        </div>
+        <div class="battlefield">
+          <div class="battle-top">
+            <span>红队 2 人</span>
+            <span>可开战</span>
+            <span>蓝队 2 人</span>
+          </div>
+          <div class="camp-row">
+            <div class="camp red">
+              <h4>红队营地</h4>
+              <div class="member"></div>
+              <div class="member"></div>
+              <div class="button-secondary">加入红队</div>
+            </div>
+            <div class="mid-mark"></div>
+            <div class="camp blue">
+              <h4>蓝队营地</h4>
+              <div class="member"></div>
+              <div class="member"></div>
+              <div class="button-secondary">加入蓝队</div>
+            </div>
+          </div>
+        </div>
+        <div class="button-primary">房主开始对战</div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：最像游戏准备室，队伍与战场关系最直观。</div>
+      <div>风险：需要把“复制房间码”“状态说明”等辅助信息收得很干净。</div>
+    </div>
+  </div>
+
+  <div class="option choice-card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>B. 邀请优先的组队房卡页</h3>
+      <p>房间码、邀请、成员列表更突出，分队和开战放在下方，更偏“社交组队房间”。</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="top">
+          <span class="pill">房间 ABCD</span>
+          <span class="pill">退出</span>
+        </div>
+        <div class="invite">
+          <div class="title" style="font-size:22px;">邀请好友加入</div>
+          <div class="code">ABCD</div>
+          <div class="button-secondary">复制房间码</div>
+        </div>
+        <div class="list-card">
+          <div class="list-row"><span>房主 小明</span><span>已加入</span></div>
+          <div class="list-row"><span>玩家 2</span><span>已加入</span></div>
+          <div class="list-row"><span>等待加入</span><span>空位</span></div>
+        </div>
+        <div class="list-card">
+          <div class="list-row"><span>切换红队</span><span>2 人</span></div>
+          <div class="list-row"><span>切换蓝队</span><span>2 人</span></div>
+        </div>
+        <div class="button-primary">开始对战</div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：开房拉人逻辑最清楚。</div>
+      <div>风险：还是容易像“房间管理页”，游戏感弱于 A。</div>
+    </div>
+  </div>
+
+  <div class="option choice-card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>C. 上半战场 + 下半队列双层页</h3>
+      <p>兼顾战场氛围和信息清晰度，上面是简化战场，下面是成员/状态/按钮区。</p>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="top">
+          <span class="pill">房间 ABCD</span>
+          <span class="pill">分享</span>
+        </div>
+        <div class="battlefield" style="min-height:220px;">
+          <div class="battle-top">
+            <span>红队</span>
+            <span>VS</span>
+            <span>蓝队</span>
+          </div>
+          <div class="camp-row">
+            <div class="camp red" style="min-height:110px;"></div>
+            <div class="mid-mark"></div>
+            <div class="camp blue" style="min-height:110px;"></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="list-card">
+            <div class="list-row"><span>红队成员</span><span>2</span></div>
+            <div class="list-row"><span>蓝队成员</span><span>2</span></div>
+          </div>
+          <div class="list-card">
+            <div class="list-row"><span>支持模式</span><span>2v2</span></div>
+            <div class="list-row"><span>当前状态</span><span>可开战</span></div>
+          </div>
+          <div class="button-primary">开始对战</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：风险小，兼容现有信息结构。</div>
+      <div>风险：还是带明显“上面展示、下面表单”的网页味道。</div>
+    </div>
+  </div>
+</div>

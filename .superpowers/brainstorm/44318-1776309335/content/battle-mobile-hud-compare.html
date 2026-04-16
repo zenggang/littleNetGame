@@ -1,0 +1,371 @@
+<style>
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .choice-card {
+    display: grid;
+    gap: 14px;
+  }
+
+  .phone {
+    position: relative;
+    min-height: 690px;
+    padding: 14px;
+    border-radius: 36px;
+    background: linear-gradient(180deg, #101925 0%, #1f3044 100%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+  }
+
+  .screen {
+    position: relative;
+    overflow: hidden;
+    min-height: 100%;
+    padding: 14px;
+    border-radius: 28px;
+    background: linear-gradient(180deg, #bfe4ff 0%, #d7efff 32%, #efcd95 32%, #9f6436 100%);
+    display: grid;
+    gap: 12px;
+    align-content: start;
+  }
+
+  .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .score-chip,
+  .timer-chip,
+  .event-chip,
+  .small-chip {
+    border-radius: 999px;
+    font-weight: 900;
+  }
+
+  .score-chip {
+    padding: 8px 10px;
+    background: rgba(255, 251, 245, 0.84);
+    color: #281a12;
+    font-size: 12px;
+  }
+
+  .timer-chip {
+    padding: 10px 14px;
+    background: linear-gradient(180deg, #222b3f 0%, #111723 100%);
+    color: #f7f5f0;
+    font-size: 18px;
+  }
+
+  .battlefield {
+    position: relative;
+    min-height: 320px;
+    padding: 14px;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 50% 14%, rgba(255, 241, 176, 0.95) 0%, rgba(255, 241, 176, 0) 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.02));
+    display: grid;
+    align-content: space-between;
+    gap: 12px;
+  }
+
+  .camp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+  }
+
+  .camp {
+    width: 30%;
+    height: 118px;
+    border-radius: 20px;
+    background: rgba(255, 251, 245, 0.78);
+    position: relative;
+  }
+
+  .camp.red {
+    box-shadow: inset 0 0 0 1px rgba(204, 67, 45, 0.18);
+  }
+
+  .camp.blue {
+    box-shadow: inset 0 0 0 1px rgba(47, 118, 223, 0.18);
+  }
+
+  .camp::before {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 18px;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(76, 53, 31, 0.14);
+  }
+
+  .camp::after {
+    content: "";
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    top: 18px;
+    height: 42px;
+    border-radius: 18px;
+    background: rgba(109, 84, 57, 0.1);
+  }
+
+  .arrow {
+    width: 78px;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #913a29 0%, #ffce6a 100%);
+    transform: rotate(-8deg);
+    margin-bottom: 44px;
+  }
+
+  .combat-rail {
+    display: grid;
+    gap: 10px;
+  }
+
+  .event-chip {
+    padding: 10px 14px;
+    background: rgba(255, 251, 245, 0.82);
+    color: #2d2119;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .panel,
+  .overlay-panel,
+  .split-panel {
+    border-radius: 22px;
+    background: rgba(255, 249, 241, 0.92);
+    box-shadow: 0 14px 30px rgba(62, 38, 19, 0.18);
+  }
+
+  .panel {
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #2a1d14;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .question {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    font-size: 24px;
+    font-weight: 900;
+    color: #1f150f;
+    text-align: center;
+  }
+
+  .input {
+    height: 48px;
+    border-radius: 16px;
+    background: rgba(112, 86, 59, 0.12);
+  }
+
+  .button-primary {
+    padding: 14px 16px;
+    border-radius: 18px;
+    text-align: center;
+    font-weight: 900;
+    background: linear-gradient(135deg, #bf3928 0%, #ef7b2d 100%);
+    color: #fff7ee;
+  }
+
+  .overlay-wrap {
+    position: relative;
+  }
+
+  .overlay-panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+    backdrop-filter: blur(12px);
+  }
+
+  .split-layout {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 12px;
+  }
+
+  .split-panel {
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .mini-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .small-chip {
+    padding: 10px 12px;
+    background: rgba(112, 86, 59, 0.12);
+    color: #3e2c20;
+    font-size: 12px;
+  }
+
+  .note {
+    display: grid;
+    gap: 8px;
+    color: #5f4935;
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .recommend {
+    display: inline-flex;
+    align-self: start;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #103d8e;
+    color: #f3f8ff;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 1200px) {
+    .compare-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>第五问：战斗页的竖屏主视图，你更要哪种？</h2>
+<p class="subtitle">这一步直接决定它是“移动端游戏 HUD”还是“网页对战页”。我建议选 A。</p>
+
+<div class="compare-grid">
+  <div class="option choice-card" data-choice="A" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>A. 上战场，下操作台</h3>
+      <p>推荐。上半屏持续显示战场和血量，下半屏固定为题目与输入区，角色名单不常驻，只保留关键信息。</p>
+    </div>
+    <span class="recommend">推荐</span>
+    <div class="phone">
+      <div class="screen">
+        <div class="top-row">
+          <div class="score-chip">红 82 / 蓝 76</div>
+          <div class="timer-chip">43</div>
+          <div class="score-chip">第 6 题</div>
+        </div>
+        <div class="battlefield">
+          <div class="camp-row">
+            <div class="camp red"></div>
+            <div class="arrow"></div>
+            <div class="camp blue"></div>
+          </div>
+          <div class="combat-rail">
+            <div class="event-chip">小明抢先答对，红队发起进攻！</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span>当前弹药题</span>
+            <span>伤害 10</span>
+          </div>
+          <div class="question">27 + 16 = ?</div>
+          <div class="input"></div>
+          <div class="button-primary">发射箭矢</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：最符合单手竖屏，战场感和答题节奏都清楚。</div>
+      <div>风险：成员名单、模式说明等需要移到二级抽屉，不再常驻。</div>
+    </div>
+  </div>
+
+  <div class="option choice-card" data-choice="B" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>B. 全屏战场 + 浮层答题面板</h3>
+      <p>战场占比最大，答题面板悬浮在底部，更强调演出感。</p>
+    </div>
+    <div class="phone">
+      <div class="screen overlay-wrap">
+        <div class="top-row">
+          <div class="score-chip">红 82 / 蓝 76</div>
+          <div class="timer-chip">43</div>
+          <div class="score-chip">第 6 题</div>
+        </div>
+        <div class="battlefield" style="min-height:470px;">
+          <div class="camp-row">
+            <div class="camp red" style="height:138px;"></div>
+            <div class="arrow" style="margin-bottom:58px;"></div>
+            <div class="camp blue" style="height:138px;"></div>
+          </div>
+          <div class="event-chip" style="max-width:72%;justify-self:center;">风沙掠过战场，双方都掉血</div>
+        </div>
+        <div class="overlay-panel">
+          <div class="panel-head">
+            <span>当前题目</span>
+            <span>伤害 10</span>
+          </div>
+          <div class="question">27 + 16 = ?</div>
+          <div class="input"></div>
+          <div class="button-primary">发射</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：更像真正游戏战斗界面，画面冲击力更强。</div>
+      <div>风险：键盘弹起、输入聚焦和遮挡控制更难。</div>
+    </div>
+  </div>
+
+  <div class="option choice-card" data-choice="C" onclick="toggleSelect(this)">
+    <div class="content">
+      <h3>C. 上战场，下信息卡，再下答题区</h3>
+      <p>继续保留更多状态信息和玩家信息，理解成本低，但网页味道更重。</p>
+    </div>
+    <div class="phone">
+      <div class="screen split-layout">
+        <div class="battlefield" style="min-height:250px;">
+          <div class="camp-row">
+            <div class="camp red" style="height:96px;"></div>
+            <div class="arrow" style="margin-bottom:34px;"></div>
+            <div class="camp blue" style="height:96px;"></div>
+          </div>
+          <div class="event-chip">蓝队命中，红队掉 8 血</div>
+        </div>
+        <div class="split-panel">
+          <div class="mini-list">
+            <div class="small-chip">红队 2 人</div>
+            <div class="small-chip">蓝队 2 人</div>
+            <div class="small-chip">模式 2v2</div>
+            <div class="small-chip">冷却中</div>
+          </div>
+          <div class="question">27 + 16 = ?</div>
+          <div class="input"></div>
+          <div class="button-primary">发射箭矢</div>
+        </div>
+      </div>
+    </div>
+    <div class="note">
+      <div>优点：兼容当前信息结构，改造阻力小。</div>
+      <div>风险：还是容易像“信息卡 + 表单 + 展示区”的网页。</div>
+    </div>
+  </div>
+</div>
