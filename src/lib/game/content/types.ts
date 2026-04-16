@@ -10,8 +10,8 @@ export type InputSchema =
   | "quotient-remainder"
   | "single-choice";
 
-// EvaluatorId keeps content packs linked to the supported answer evaluators.
-export type EvaluatorId = "math-single-number" | "math-quotient-remainder";
+// EvaluatorId stays extensible while still keeping the subject prefix in the type contract.
+export type EvaluatorId = `${SubjectCode}-${string}`;
 
 // ContentPack is the shared catalog contract consumed by room presets and gameplay.
 export type ContentPack = {

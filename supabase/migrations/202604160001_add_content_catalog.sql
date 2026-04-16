@@ -29,12 +29,59 @@ begin
   if not exists (
     select 1
     from pg_constraint
+    where conname = 'content_packs_subject_grade_id_key'
+      and conrelid = 'public.content_packs'::regclass
+  ) then
+    alter table public.content_packs
+      add constraint content_packs_subject_grade_id_key
+      unique (subject_code, grade_code, id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
     where conname = 'rooms_content_pack_id_fkey'
       and conrelid = 'public.rooms'::regclass
   ) then
     alter table public.rooms
       add constraint rooms_content_pack_id_fkey
       foreign key (content_pack_id) references public.content_packs (id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'rooms_subject_grade_content_pack_fkey'
+      and conrelid = 'public.rooms'::regclass
+  ) then
+    alter table public.rooms
+      add constraint rooms_subject_grade_content_pack_fkey
+      foreign key (subject_code, grade_code, content_pack_id)
+      references public.content_packs (subject_code, grade_code, id);
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'matches_subject_grade_content_pack_fkey'
+      and conrelid = 'public.matches'::regclass
+  ) then
+    alter table public.matches
+      add constraint matches_subject_grade_content_pack_fkey
+      foreign key (subject_code, grade_code, content_pack_id)
+      references public.content_packs (subject_code, grade_code, id);
   end if;
 end
 $$;
