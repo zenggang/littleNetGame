@@ -7,6 +7,7 @@ import { BattleHud } from "@/components/battle-runtime/BattleHud";
 import { PhaserBattleStage } from "@/components/battle-runtime/PhaserBattleStage";
 import { buildBattleViewModel } from "@/components/battle-runtime/build-battle-view-model";
 import { QuestionForm } from "@/components/game/question-form";
+import { useMatchSession } from "@/lib/game/client/use-match-session";
 import { matchStateFromSnapshot } from "@/lib/game/protocol/from-supabase-snapshot";
 import {
   getMatchSnapshot,
@@ -69,17 +70,51 @@ export default function BattlePage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      tickMatch(matchId).catch(() => undefined);
-    }, 500);
+    }, 250);
 
     return () => window.clearInterval(timer);
-  }, [matchId]);
+  }, []);
 
   useEffect(() => {
     if (snapshot?.match?.phase === "finished") {
       router.push(`/result/${matchId}`);
     }
   }, [matchId, router, snapshot?.match?.phase]);
+
+  const matchSession = useMatchSession({
+    roomCode: snapshot?.room?.code ?? "",
+    playerId: snapshot?.session?.playerId ?? "",
+    nickname: snapshot?.session?.nickname ?? "",
+  });
+
+  useEffect(() => {
+    if (!snapshot?.match) {
+      return;
+    }
+
+    let deadline = Date.parse(snapshot.match.endsAt);
+
+    if (snapshot.match.phase === "countdown") {
+      deadline = Date.parse(snapshot.match.countdownEndsAt);
+    }
+
+    if (snapshot.match.phase === "active") {
+      deadline = Math.min(deadline, Date.parse(snapshot.match.questionDeadlineAt));
+    }
+
+    const delay = Math.max(0, deadline - Date.now() + 50);
+    const timer = window.setTimeout(() => {
+      tickMatch(matchId)
+        .then(() => loadSnapshot())
+        .catch(() => undefined);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    loadSnapshot,
+    matchId,
+    snapshot?.match,
+  ]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -106,7 +141,9 @@ export default function BattlePage() {
 
   const room = snapshot.room;
   const match = snapshot.match;
-  const state = matchStateFromSnapshot({ match });
+  const state = matchSession.lastSeq > 0
+    ? matchSession
+    : matchStateFromSnapshot({ match });
   const viewModel = buildBattleViewModel(state, now);
   const cooldownUntil = snapshot.viewer
     ? match.cooldowns[snapshot.viewer.playerId] ?? 0
