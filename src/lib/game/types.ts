@@ -1,3 +1,5 @@
+import type { InputSchema } from "@/lib/game/content/types";
+
 export type TeamName = "red" | "blue";
 
 export type MatchMode = "1v1" | "1v2" | "1v3" | "2v2" | "3v3";
@@ -25,7 +27,8 @@ export type QuestionType =
   | "division"
   | "remainder-division";
 
-export type AnswerKind = "single-number" | "quotient-remainder";
+// Keep runtime answer kinds aligned with the shared content input schema.
+export type AnswerKind = Exclude<InputSchema, "single-choice">;
 
 export type MathQuestion = {
   key: string;
