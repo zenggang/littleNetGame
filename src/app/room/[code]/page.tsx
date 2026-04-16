@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { ModeCallout } from "@/components/game/mode-callout";
-import { TeamColumn } from "@/components/game/team-column";
+import { RoomPrepScreen } from "@/components/game-shell/RoomPrepScreen";
 import {
   getRoomSnapshot,
   joinRoom,
@@ -14,7 +13,6 @@ import {
   switchTeam,
   toUserMessage,
 } from "@/lib/supabase/game-store";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
@@ -120,21 +118,6 @@ export default function RoomPage() {
   return (
     <main className={styles.page}>
       <section className={styles.roomShell}>
-        <header className={styles.header}>
-          <div>
-            <p className={styles.roomCode}>房间码 {room.code}</p>
-            <h1>集合并分队</h1>
-            <p className={styles.subtle}>
-              {room.gradeLabel} · {room.capacity} 人房
-            </p>
-          </div>
-          <button className="ghostButton" onClick={() => navigator.clipboard.writeText(room.code)} type="button">
-            复制房间码
-          </button>
-        </header>
-
-        <ModeCallout isSupabaseReady={hasSupabaseEnv} />
-
         {!snapshot.viewer ? (
           <section className={styles.joinPanel}>
             <h2>先加入房间</h2>
@@ -166,78 +149,37 @@ export default function RoomPage() {
           </section>
         ) : null}
 
-        <section className={styles.teams}>
-          <TeamColumn
-            team="red"
-            members={redMembers}
-            activePlayerId={snapshot.session?.playerId ?? null}
-            onJoin={snapshot.viewer
-              ? async (team) => {
-                  try {
-                    await switchTeam(roomCode, team);
-                    await loadSnapshot();
-                  } catch (nextError) {
-                    setError(toUserMessage(nextError));
-                  }
-                }
-              : undefined}
-            locked={room.status !== "open"}
-          />
-          <TeamColumn
-            team="blue"
-            members={blueMembers}
-            activePlayerId={snapshot.session?.playerId ?? null}
-            onJoin={snapshot.viewer
-              ? async (team) => {
-                  try {
-                    await switchTeam(roomCode, team);
-                    await loadSnapshot();
-                  } catch (nextError) {
-                    setError(toUserMessage(nextError));
-                  }
-                }
-              : undefined}
-            locked={room.status !== "open"}
-          />
-        </section>
-
-        <section className={styles.statusBar}>
-          <div>
-            <strong>可开局模式</strong>
-            <span>
-              2 人 = 1v1，3 人 = 1v2，4 人 = 1v3 或 2v2，6 人 = 3v3
-            </span>
-          </div>
-          <div>
-            <strong>当前状态</strong>
-            <span>{snapshot.canStart ? "人数和分队已满足，可以开始" : "还没满足支持的分队组合"}</span>
-          </div>
-        </section>
-
-        {snapshot.viewer?.playerId === room.hostPlayerId ? (
-          <button
-            className="primaryButton"
-            disabled={!snapshot.canStart || busy}
-            onClick={async () => {
-              try {
-                setBusy(true);
-                const match = await startMatch(roomCode);
-                router.push(`/battle/${match.id}`);
-              } catch (nextError) {
-                setError(toUserMessage(nextError));
-              } finally {
-                setBusy(false);
-              }
-            }}
-            type="button"
-          >
-            房主开始对战
-          </button>
-        ) : (
-          <p className={styles.waiting}>等待房主开始。你可以先换到想去的队伍。</p>
-        )}
-
-        {error ? <p className={styles.error}>{error}</p> : null}
+        <RoomPrepScreen
+          blueMembers={blueMembers}
+          busy={busy}
+          canStart={snapshot.canStart}
+          canJoinTeam={Boolean(snapshot.viewer) && room.status === "open"}
+          error={error}
+          isHost={snapshot.viewer?.playerId === room.hostPlayerId}
+          onCopyCode={() => navigator.clipboard.writeText(room.code)}
+          onJoinTeam={async (team) => {
+            try {
+              await switchTeam(roomCode, team);
+              await loadSnapshot();
+            } catch (nextError) {
+              setError(toUserMessage(nextError));
+            }
+          }}
+          onStart={async () => {
+            try {
+              setBusy(true);
+              const match = await startMatch(roomCode);
+              router.push(`/battle/${match.id}`);
+            } catch (nextError) {
+              setError(toUserMessage(nextError));
+            } finally {
+              setBusy(false);
+            }
+          }}
+          redMembers={redMembers}
+          roomCode={room.code}
+          roomLabel={`${room.gradeLabel} · ${room.capacity} 人房`}
+        />
       </section>
     </main>
   );
