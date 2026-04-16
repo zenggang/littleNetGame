@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { RoomPrepScreen } from "@/components/game-shell/RoomPrepScreen";
+import { useRoomSession } from "@/lib/game/client/use-room-session";
 import {
   getRoomSnapshot,
   joinRoom,
@@ -90,6 +91,12 @@ export default function RoomPage() {
     }
   }, [router, snapshot?.room?.activeMatchId]);
 
+  const roomSession = useRoomSession({
+    roomCode,
+    playerId: snapshot?.session?.playerId ?? "",
+    nickname,
+  });
+
   if (!hydrated || !snapshot) {
     return (
       <main className={styles.page}>
@@ -118,6 +125,10 @@ export default function RoomPage() {
   return (
     <main className={styles.page}>
       <section className={styles.roomShell}>
+        {!roomSession.connected ? (
+          <p className={styles.channelHint}>正在连接战前编队频道…</p>
+        ) : null}
+
         {!snapshot.viewer ? (
           <section className={styles.joinPanel}>
             <h2>先加入房间</h2>

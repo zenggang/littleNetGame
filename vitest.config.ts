@@ -14,6 +14,7 @@ export default defineConfig({
       "src/lib/game/protocol/**/*.test.ts",
       "src/components/**/*.test.ts",
       "src/components/**/*.test.tsx",
+      "realtime-worker/test/**/*.test.ts",
     ],
   },
   resolve: {

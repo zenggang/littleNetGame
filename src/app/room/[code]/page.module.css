@@ -10,6 +10,12 @@
   gap: 16px;
 }
 
+.channelHint {
+  color: #615546;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
 .joinPanel,
 .emptyState {
   display: grid;
