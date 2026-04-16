@@ -54,7 +54,7 @@ export function useRoomSession(input: {
   playerId: string;
   nickname: string;
   initialSnapshot?: CoordinatorRoomSnapshot | null;
-}) {
+  }) {
   const { initialSnapshot = null, nickname, playerId, roomCode } = input;
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<CoordinatorRoomSnapshot | null>(initialSnapshot);
@@ -63,6 +63,7 @@ export function useRoomSession(input: {
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
   const useLocalDemoMode = !hasSupabaseEnvConfigured();
+  const resolvedSnapshot = resolvePreferredRoomSnapshot(snapshot, initialSnapshot);
 
   useEffect(() => {
     if (!roomCode) {
@@ -221,7 +222,7 @@ export function useRoomSession(input: {
 
   return {
     connected,
-    snapshot,
+    snapshot: resolvedSnapshot,
     joinRoom: (nextNickname: string) =>
       useLocalDemoMode
         ? sendLocalCommand({
@@ -251,4 +252,40 @@ export function useRoomSession(input: {
             type: "room.start_match",
           }),
   };
+}
+
+function resolvePreferredRoomSnapshot(
+  liveSnapshot: CoordinatorRoomSnapshot | null,
+  fetchedSnapshot: CoordinatorRoomSnapshot | null,
+) {
+  if (!liveSnapshot) {
+    return fetchedSnapshot;
+  }
+
+  if (!fetchedSnapshot) {
+    return liveSnapshot;
+  }
+
+  /**
+   * websocket 是房间页的主通道，但移动端 WebView 偶发漏掉 room.snapshot 广播时，
+   * 外层直接拉取回来的 snapshot 往往才是“更新后的真相”。
+   *
+   * 这里不盲目用 fetched 覆盖 live，而是只在它明显更“向前推进”时才接管：
+   * - 成员数变多
+   * - canStart 从 false 变 true
+   * - 已经拿到 activeMatchId
+   */
+  if (fetchedSnapshot.room?.activeMatchId && !liveSnapshot.room?.activeMatchId) {
+    return fetchedSnapshot;
+  }
+
+  if (fetchedSnapshot.members.length > liveSnapshot.members.length) {
+    return fetchedSnapshot;
+  }
+
+  if (fetchedSnapshot.canStart && !liveSnapshot.canStart) {
+    return fetchedSnapshot;
+  }
+
+  return liveSnapshot;
 }

@@ -225,4 +225,89 @@ describe("useRoomSession", () => {
     expect(result.current.snapshot?.room?.code).toBe(room.code);
     expect(result.current.snapshot?.viewer?.nickname).toBe("阿杰");
   });
+
+  it("adopts a fresher parent snapshot when realtime misses a room member update", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const hostOnlySnapshot = {
+      room: {
+        id: "room-1",
+        code: "ABCD",
+        gradeLabel: "小学二年级",
+        capacity: 2 as const,
+        hostPlayerId: "player-1",
+        status: "open" as const,
+        activeMatchId: null,
+        createdAt: "2026-04-16T10:00:00.000Z",
+      },
+      members: [
+        {
+          playerId: "player-1",
+          nickname: "阿杰",
+          team: "red" as const,
+          joinedAt: "2026-04-16T10:00:00.000Z",
+        },
+      ],
+      match: null,
+      viewer: {
+        playerId: "player-1",
+        nickname: "阿杰",
+        team: "red" as const,
+        joinedAt: "2026-04-16T10:00:00.000Z",
+      },
+      canStart: false,
+      session: {
+        playerId: "player-1",
+        nickname: "阿杰",
+      },
+    };
+
+    const fullSnapshot = {
+      ...hostOnlySnapshot,
+      members: [
+        ...hostOnlySnapshot.members,
+        {
+          playerId: "player-2",
+          nickname: "小蓝",
+          team: "blue" as const,
+          joinedAt: "2026-04-16T10:00:05.000Z",
+        },
+      ],
+      canStart: true,
+    };
+
+    const { result, rerender } = renderHook(
+      ({ initialSnapshot }) =>
+        useRoomSession({
+          roomCode: "ABCD",
+          playerId: "player-1",
+          nickname: "阿杰",
+          initialSnapshot,
+        }),
+      {
+        initialProps: {
+          initialSnapshot: hostOnlySnapshot,
+        },
+      },
+    );
+
+    await flushAsyncWork();
+    act(() => {
+      socket.emitOpen();
+    });
+
+    expect(result.current.snapshot?.members).toHaveLength(1);
+    expect(result.current.snapshot?.canStart).toBe(false);
+
+    rerender({
+      initialSnapshot: fullSnapshot,
+    });
+
+    await flushAsyncWork();
+    expect(result.current.snapshot?.members).toHaveLength(2);
+    expect(result.current.snapshot?.members[1]?.nickname).toBe("小蓝");
+    expect(result.current.snapshot?.canStart).toBe(true);
+  });
 });

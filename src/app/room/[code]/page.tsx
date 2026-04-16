@@ -55,6 +55,45 @@ export default function RoomPage() {
     loadSnapshot();
   }, [hydrated, loadSnapshot]);
 
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    const refreshSnapshot = () => {
+      void loadSnapshot();
+    };
+
+    const handleVisibilityRefresh = () => {
+      if (document.hidden) {
+        return;
+      }
+
+      refreshSnapshot();
+    };
+
+    /**
+     * 房间页的主同步仍然优先 websocket，但移动端 WebView 和弱网环境下偶发漏广播时，
+     * 需要有一层轻量的快照补偿机制，避免成员列表永久停留在旧状态。
+     */
+    const timer = window.setInterval(() => {
+      if (document.hidden) {
+        return;
+      }
+
+      refreshSnapshot();
+    }, 2_000);
+
+    window.addEventListener("focus", refreshSnapshot);
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshSnapshot);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+    };
+  }, [hydrated, loadSnapshot]);
+
   const roomSession = useRoomSession({
     roomCode,
     playerId: snapshot?.session?.playerId ?? "",
