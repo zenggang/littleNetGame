@@ -1,0 +1,19 @@
+{
+  "name": "little-net-game-coordinator",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-15",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MATCH_ROOM",
+        "class_name": "MatchRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MatchRoom"]
+    }
+  ]
+}

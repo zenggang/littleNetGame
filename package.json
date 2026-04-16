@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:worker": "wrangler dev --config realtime-worker/wrangler.jsonc",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "npm run test:legacy",
     "test:legacy": "tsx --test src/lib/**/*.test.ts",
     "test:unit": "vitest run",
-    "test:all": "npm run test:legacy && npm run test:unit"
+    "test:worker": "vitest run --config realtime-worker/vitest.config.ts",
+    "test:all": "npm run test:legacy && npm run test:unit && npm run test:worker",
+    "typegen:worker": "wrangler types --config realtime-worker/wrangler.jsonc"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
