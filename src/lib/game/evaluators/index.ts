@@ -6,7 +6,7 @@ type Evaluator = (
 ) => boolean;
 
 // String ids let content packs bind evaluator behavior without importing question code directly.
-const evaluators = {
+const evaluators: Partial<Record<EvaluatorId, Evaluator>> = {
   "math-single-number": (answer, correctAnswer) => {
     const answerValue = readNonNegativeInteger(answer, "value");
     const correctValue = readNonNegativeInteger(correctAnswer, "value");
@@ -28,7 +28,7 @@ const evaluators = {
       answerRemainder === correctRemainder
     );
   },
-} satisfies Partial<Record<EvaluatorId, Evaluator>>;
+};
 
 export function evaluateAnswer(
   evaluatorId: EvaluatorId,
