@@ -12,6 +12,7 @@ export default defineConfig({
       "src/lib/server/**/*.test.ts",
       "src/lib/game/content/**/*.test.ts",
       "src/lib/game/protocol/**/*.test.ts",
+      "src/lib/game/result/**/*.test.ts",
       "src/components/**/*.test.ts",
       "src/components/**/*.test.tsx",
       "realtime-worker/test/**/*.test.ts",

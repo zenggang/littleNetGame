@@ -11,7 +11,7 @@
     "test": "npm run test:legacy",
     "test:legacy": "tsx --test src/lib/**/*.test.ts",
     "test:unit": "vitest run",
-    "test:worker": "vitest run --config realtime-worker/vitest.config.ts",
+    "test:worker": "vitest run realtime-worker/test/room-engine.test.ts realtime-worker/test/match-engine.test.ts",
     "test:all": "npm run test:legacy && npm run test:unit && npm run test:worker",
     "typegen:worker": "wrangler types --config realtime-worker/wrangler.jsonc"
   },
