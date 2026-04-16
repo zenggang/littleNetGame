@@ -7,6 +7,8 @@ import type { MathQuestion } from "@/lib/game/types";
 type QuestionFormProps = {
   question: MathQuestion;
   disabled?: boolean;
+  submitLabel: string;
+  flash: "idle" | "success" | "wrong";
   onSubmit: (payload: {
     value?: string;
     quotient?: string;
@@ -17,6 +19,8 @@ type QuestionFormProps = {
 export function QuestionForm({
   question,
   disabled = false,
+  submitLabel,
+  flash,
   onSubmit,
 }: QuestionFormProps) {
   const [singleValue, setSingleValue] = useState("");
@@ -32,6 +36,7 @@ export function QuestionForm({
   return (
     <form
       className="questionForm"
+      data-flash={flash}
       onSubmit={(event) => {
         event.preventDefault();
 
@@ -45,18 +50,21 @@ export function QuestionForm({
       }}
     >
       {question.answerKind === "single-number" ? (
-        <input
-          value={singleValue}
-          onChange={(event) => setSingleValue(event.target.value)}
-          inputMode="numeric"
-          className="answerInput largeInput"
-          placeholder="输入答案"
-          disabled={disabled}
-        />
+        <label className="battleAnswerSlot">
+          <span className="battleAnswerLabel">答案装填槽</span>
+          <input
+            value={singleValue}
+            onChange={(event) => setSingleValue(event.target.value)}
+            inputMode="numeric"
+            className="answerInput largeInput"
+            placeholder="填入答案"
+            disabled={disabled}
+          />
+        </label>
       ) : (
         <div className="doubleInput">
-          <label>
-            商
+          <label className="battleAnswerSlot">
+            <span className="battleAnswerLabel">商槽位</span>
             <input
               value={quotient}
               onChange={(event) => setQuotient(event.target.value)}
@@ -66,8 +74,8 @@ export function QuestionForm({
               disabled={disabled}
             />
           </label>
-          <label>
-            余数
+          <label className="battleAnswerSlot">
+            <span className="battleAnswerLabel">余数槽位</span>
             <input
               value={remainder}
               onChange={(event) => setRemainder(event.target.value)}
@@ -80,8 +88,9 @@ export function QuestionForm({
         </div>
       )}
 
-      <button className="primaryButton" type="submit" disabled={disabled}>
-        发射箭矢
+      <button className="battleFireButton" type="submit" disabled={disabled}>
+        <span className="battleFireButtonGlow" aria-hidden="true" />
+        <span className="battleFireButtonLabel">{submitLabel}</span>
       </button>
     </form>
   );

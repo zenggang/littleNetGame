@@ -6,6 +6,7 @@ import HomePage from "@/app/page";
 
 const mocks = vi.hoisted(() => ({
   createRoom: vi.fn(),
+  hasSupabaseEnvConfigured: vi.fn(),
   joinRoom: vi.fn(),
   push: vi.fn(),
   readPlayerSession: vi.fn(),
@@ -25,13 +26,19 @@ vi.mock("@/lib/supabase/game-store", () => ({
   toUserMessage: mocks.toUserMessage,
 }));
 
+vi.mock("@/lib/supabase/env", () => ({
+  hasSupabaseEnvConfigured: mocks.hasSupabaseEnvConfigured,
+}));
+
 describe("HomePage", () => {
   beforeEach(() => {
     mocks.createRoom.mockReset();
     mocks.joinRoom.mockReset();
     mocks.push.mockReset();
     mocks.readPlayerSession.mockReset();
+    mocks.hasSupabaseEnvConfigured.mockReset();
     mocks.toUserMessage.mockReset();
+    mocks.hasSupabaseEnvConfigured.mockReturnValue(true);
     mocks.readPlayerSession.mockResolvedValue(null);
   });
 
@@ -87,5 +94,13 @@ describe("HomePage", () => {
     expect(screen.queryByRole("dialog", { name: "加入游戏" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("没找到这个房间。");
     expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it("shows a local demo hint when supabase env is missing", () => {
+    mocks.hasSupabaseEnvConfigured.mockReturnValue(false);
+
+    render(<HomePage />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("当前为本地 Demo 模式");
   });
 });

@@ -13,10 +13,67 @@ describe("buildMatchReport", () => {
       },
       totalCorrect: { red: 6, blue: 4 },
       durationMs: 62_000,
+      finalEventLog: [],
     });
 
     expect(report.headline).toBe("红队胜利");
     expect(report.summary).toContain("血量归零");
     expect(report.stats.redCorrect).toBe(6);
+  });
+
+  it("extracts a compact battle timeline from the final event log", () => {
+    const report = buildMatchReport({
+      winner: "blue",
+      winReason: "time_up",
+      teams: {
+        red: { hpCurrent: 14 },
+        blue: { hpCurrent: 28 },
+      },
+      totalCorrect: { red: 5, blue: 7 },
+      durationMs: 63_000,
+      finalEventLog: [
+        {
+          id: "evt-1",
+          type: "match_finished",
+          text: "蓝队获胜！",
+          createdAt: "2026-04-16T10:01:03.000Z",
+          team: "blue",
+        },
+        {
+          id: "evt-2",
+          type: "answer_correct",
+          text: "小蓝抢先答对了，蓝队发起进攻！",
+          createdAt: "2026-04-16T10:00:54.000Z",
+          team: "blue",
+          targetTeam: "red",
+          damage: 8,
+        },
+        {
+          id: "evt-3",
+          type: "question_timeout",
+          text: "这题没人答对，双方都掉了 2 点血。",
+          createdAt: "2026-04-16T10:00:46.000Z",
+        },
+      ],
+    });
+
+    expect(report.timeline).toHaveLength(3);
+    expect(report.timeline[0]).toEqual(
+      expect.objectContaining({
+        label: "胜负揭晓",
+        text: "蓝队获胜！",
+      }),
+    );
+    expect(report.timeline[1]).toEqual(
+      expect.objectContaining({
+        label: "关键命中",
+        damage: 8,
+      }),
+    );
+    expect(report.timeline[2]).toEqual(
+      expect.objectContaining({
+        label: "题目超时",
+      }),
+    );
   });
 });

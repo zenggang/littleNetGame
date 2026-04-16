@@ -2,6 +2,19 @@
 
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+import {
+  createRoom as createDemoRoom,
+  getMatchSnapshot as getDemoMatchSnapshot,
+  getRoomSnapshot as getDemoRoomSnapshot,
+  joinRoom as joinDemoRoom,
+  readPlayerSession as readDemoPlayerSession,
+  restartRoom as restartDemoRoom,
+  startMatch as startDemoMatch,
+  submitAnswer as submitDemoAnswer,
+  subscribeToDemoStore,
+  switchTeam as switchDemoTeam,
+  tickMatch as tickDemoMatch,
+} from "@/lib/demo/store";
 import type {
   DemoMatch,
   DemoMatchEvent,
@@ -11,6 +24,7 @@ import type {
 } from "@/lib/demo/store";
 import type { TeamName } from "@/lib/game/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { hasSupabaseEnvConfigured } from "@/lib/supabase/env";
 
 type RoomSnapshot = {
   room: DemoRoom | null;
@@ -74,6 +88,10 @@ function requireClient() {
   return client;
 }
 
+function shouldUseDemoStore() {
+  return !hasSupabaseEnvConfigured();
+}
+
 export function toUserMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
 
@@ -102,7 +120,7 @@ export function toUserMessage(error: unknown) {
     case "ROOM_FORBIDDEN":
       return "你没有权限查看这场对局。";
     case "SUPABASE_NOT_CONFIGURED":
-      return "还没配置 Supabase 环境变量。";
+      return "还没配置 Supabase 环境变量。请复制 .env.example 到 .env.local，并填写 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY。";
     default:
       return message || "操作失败，请再试一次。";
   }
@@ -285,6 +303,10 @@ function normalizeMatchSnapshot(raw: Record<string, unknown>): MatchSnapshot {
 }
 
 export async function readPlayerSession() {
+  if (shouldUseDemoStore()) {
+    return readDemoPlayerSession();
+  }
+
   const data = await callRpc<Record<string, unknown>>("ensure_player_profile", {
     p_nickname: null,
   });
@@ -296,6 +318,10 @@ export async function createRoom(input: {
   capacity: 2 | 3 | 4 | 6;
   nickname: string;
 }) {
+  if (shouldUseDemoStore()) {
+    return createDemoRoom(input);
+  }
+
   const data = await callRpc<Record<string, unknown>>("game_create_room", {
     p_capacity: input.capacity,
     p_nickname: input.nickname,
@@ -308,6 +334,10 @@ export async function createRoom(input: {
 }
 
 export async function joinRoom(input: { roomCode: string; nickname: string }) {
+  if (shouldUseDemoStore()) {
+    return joinDemoRoom(input);
+  }
+
   return callRpc<Record<string, unknown>>("game_join_room", {
     p_room_code: input.roomCode,
     p_nickname: input.nickname,
@@ -315,6 +345,11 @@ export async function joinRoom(input: { roomCode: string; nickname: string }) {
 }
 
 export async function switchTeam(roomCode: string, team: TeamName) {
+  if (shouldUseDemoStore()) {
+    switchDemoTeam(roomCode, team);
+    return;
+  }
+
   await callRpc("game_switch_team", {
     p_room_code: roomCode,
     p_team: team,
@@ -322,6 +357,10 @@ export async function switchTeam(roomCode: string, team: TeamName) {
 }
 
 export async function startMatch(roomCode: string) {
+  if (shouldUseDemoStore()) {
+    return startDemoMatch(roomCode);
+  }
+
   const data = await callRpc<Record<string, unknown>>("game_start_match", {
     p_room_code: roomCode,
   });
@@ -335,6 +374,10 @@ export async function submitAnswer(
   matchId: string,
   payload: Record<string, string>,
 ): Promise<SubmitAnswerResult> {
+  if (shouldUseDemoStore()) {
+    return submitDemoAnswer(matchId, payload);
+  }
+
   const data = await callRpc<Record<string, unknown>>("game_submit_answer", {
     p_match_id: matchId,
     p_answer_payload: payload,
@@ -347,18 +390,32 @@ export async function submitAnswer(
 }
 
 export async function tickMatch(matchId: string) {
+  if (shouldUseDemoStore()) {
+    tickDemoMatch(matchId);
+    return {};
+  }
+
   return callRpc<Record<string, unknown>>("game_tick_match", {
     p_match_id: matchId,
   });
 }
 
 export async function restartRoom(roomCode: string) {
+  if (shouldUseDemoStore()) {
+    restartDemoRoom(roomCode);
+    return;
+  }
+
   await callRpc("game_restart_room", {
     p_room_code: roomCode,
   });
 }
 
 export async function getRoomSnapshot(roomCode: string) {
+  if (shouldUseDemoStore()) {
+    return getDemoRoomSnapshot(roomCode);
+  }
+
   const data = await callRpc<Record<string, unknown>>("game_room_snapshot", {
     p_room_code: roomCode,
   });
@@ -367,6 +424,10 @@ export async function getRoomSnapshot(roomCode: string) {
 }
 
 export async function getMatchSnapshot(matchId: string) {
+  if (shouldUseDemoStore()) {
+    return getDemoMatchSnapshot(matchId);
+  }
+
   const data = await callRpc<Record<string, unknown>>("game_match_snapshot", {
     p_match_id: matchId,
   });
@@ -375,6 +436,10 @@ export async function getMatchSnapshot(matchId: string) {
 }
 
 export async function getMatchReport(matchId: string) {
+  if (shouldUseDemoStore()) {
+    throw new Error("DEMO_REPORT_UNAVAILABLE");
+  }
+
   await ensureSession();
 
   const client = requireClient();
@@ -442,6 +507,10 @@ function subscribe(channel: RealtimeChannel, onReady?: () => void) {
 }
 
 export function subscribeToRoom(roomId: string, callback: () => void) {
+  if (shouldUseDemoStore()) {
+    return subscribeToDemoStore(callback);
+  }
+
   const client = requireClient();
   const channel = client
     .channel(`room:${roomId}:${crypto.randomUUID()}`)
@@ -472,6 +541,10 @@ export function subscribeToMatch(
   matchId: string,
   callback: () => void,
 ) {
+  if (shouldUseDemoStore()) {
+    return subscribeToDemoStore(callback);
+  }
+
   const client = requireClient();
   const channel = client
     .channel(`match:${matchId}:${crypto.randomUUID()}`)

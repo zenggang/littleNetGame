@@ -1,84 +1,245 @@
 .page {
-  min-height: 100vh;
-  padding: 14px 10px 28px;
+  min-height: 100dvh;
+  padding: 12px 10px 22px;
+  background:
+    radial-gradient(circle at 50% -6%, rgba(255, 242, 178, 0.88), rgba(255, 242, 178, 0) 34%),
+    linear-gradient(180deg, #8dd3ff 0%, #dff7ff 20%, #f3d3a5 48%, #e39b59 100%);
 }
 
 .shell {
-  width: min(420px, 100%);
+  width: min(430px, 100%);
+  min-height: calc(100dvh - 24px);
   margin: 0 auto;
   display: grid;
-  gap: 14px;
-}
-
-.topBar,
-.stageCard,
-.footer,
-.emptyState {
-  padding: 18px;
-  border-radius: 24px;
-  border: 1px solid rgba(84, 52, 27, 0.14);
-  background: rgba(255, 249, 240, 0.92);
-  box-shadow: 0 20px 54px rgba(68, 43, 19, 0.12);
-}
-
-.topBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 12px;
 }
 
-.topBar strong {
+.shell[data-tone="victory"] {
+  filter: saturate(1.04);
+}
+
+.shell[data-tone="defeat"] {
+  filter: saturate(0.96);
+}
+
+.topBar,
+.footer,
+.emptyState {
+  border: 1px solid rgba(84, 52, 27, 0.14);
+  background: rgba(255, 249, 240, 0.9);
+  box-shadow: 0 18px 42px rgba(68, 43, 19, 0.12);
+}
+
+.topBar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 22px;
+}
+
+.topBarCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.topBarCopy strong {
   display: block;
-  color: #241816;
-  font-size: 1.25rem;
+  color: #281712;
+  font-size: 1.08rem;
 }
 
 .kicker {
   color: #9d431f;
   letter-spacing: 0.14em;
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
 }
 
+.scoreStrip {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+.teamPill {
+  flex: 1 1 0;
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 16px;
+  color: #fffdf8;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.teamPill span {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.teamPill strong {
+  font-size: 1rem;
+}
+
+.teamPillRed {
+  background: linear-gradient(180deg, #d95942 0%, #ab381f 100%);
+}
+
+.teamPillBlue {
+  background: linear-gradient(180deg, #3c91fa 0%, #235fc1 100%);
+}
+
 .timerPill {
+  justify-self: end;
   min-width: 92px;
   padding: 10px 12px;
   border-radius: 16px;
   background: linear-gradient(180deg, #222b3f 0%, #111723 100%);
   color: #f7f5f0;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 900;
   text-align: center;
 }
 
+.stageShell {
+  position: relative;
+  min-height: 0;
+}
+
+.stageBanner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border-radius: 999px;
+  color: #fffef9;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  box-shadow: 0 14px 30px rgba(52, 33, 17, 0.18);
+}
+
+.stageBanner[data-tone="ready"] {
+  background: linear-gradient(180deg, #37a2ff 0%, #1968d6 100%);
+}
+
+.stageBanner[data-tone="countdown"] {
+  background: linear-gradient(180deg, #f9bd50 0%, #dd8e2f 100%);
+}
+
+.stageBanner[data-tone="cooldown"],
+.stageBanner[data-tone="danger"],
+.stageBanner[data-tone="defeat"] {
+  background: linear-gradient(180deg, #ef6d4a 0%, #b33b24 100%);
+}
+
+.stageBanner[data-tone="victory"] {
+  background: linear-gradient(180deg, #ffd363 0%, #f0a727 100%);
+  color: #7b4317;
+}
+
+.stageSummary {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 248, 236, 0.88);
+  color: #603d25;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(55, 34, 16, 0.12);
+}
+
 .stageCard {
-  padding: 12px;
+  height: min(60vh, 600px);
+  min-height: 420px;
+  overflow: hidden;
+  border-radius: 34px;
+  border: 1px solid rgba(112, 70, 40, 0.18);
   background:
-    radial-gradient(circle at 50% 14%, rgba(255, 243, 190, 0.95), rgba(255, 243, 190, 0) 26%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.88), rgba(248, 229, 197, 0.9));
+    radial-gradient(circle at 50% 10%, rgba(255, 245, 176, 0.86), rgba(255, 245, 176, 0) 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0));
+  box-shadow: 0 24px 54px rgba(82, 50, 24, 0.16);
+}
+
+.stageCard[data-tone="victory"] {
+  box-shadow: 0 24px 64px rgba(240, 167, 39, 0.26);
+}
+
+.stageCard[data-tone="danger"],
+.stageCard[data-tone="defeat"] {
+  box-shadow: 0 24px 64px rgba(194, 77, 46, 0.22);
 }
 
 .footer {
   display: grid;
   gap: 12px;
+  padding: 14px;
+  border-radius: 22px;
+}
+
+.footerMessage {
+  color: #37251a;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.footer[data-tone="victory"] .footerMessage {
+  color: #7b4518;
+}
+
+.footer[data-tone="defeat"] .footerMessage,
+.footer[data-tone="danger"] .footerMessage,
+.footer[data-tone="cooldown"] .footerMessage {
+  color: #8c341f;
+}
+
+.emptyState {
+  padding: 18px;
+  border-radius: 24px;
 }
 
 @media (max-width: 540px) {
   .page {
-    padding: 12px 8px 24px;
+    padding: 10px 8px 20px;
+  }
+
+  .shell {
+    gap: 10px;
   }
 
   .topBar,
-  .stageCard,
   .footer,
   .emptyState {
-    padding: 16px;
     border-radius: 20px;
   }
 
+  .topBar {
+    padding: 12px;
+  }
+
   .stageCard {
-    padding: 10px;
+    height: min(58vh, 560px);
+    min-height: 390px;
+    border-radius: 28px;
+  }
+
+  .stageBanner {
+    top: 12px;
+    padding: 9px 14px;
+    font-size: 0.92rem;
+  }
+
+  .stageSummary {
+    bottom: 12px;
+    width: calc(100% - 28px);
+    text-align: center;
   }
 }

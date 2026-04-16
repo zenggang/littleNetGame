@@ -10,10 +10,12 @@ import {
   readPlayerSession,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import { hasSupabaseEnvConfigured } from "@/lib/supabase/env";
 import styles from "./page.module.css";
 
 export default function HomePage() {
   const router = useRouter();
+  const isLocalDemoMode = !hasSupabaseEnvConfigured();
   const [capacity, setCapacity] = useState<2 | 3 | 4 | 6>(2);
   const [message, setMessage] = useState("");
   const [nickname, setNickname] = useState("");
@@ -40,7 +42,12 @@ export default function HomePage() {
     <main className={styles.page}>
       <GameHallScreen
         capacity={capacity}
-        message={message}
+        message={
+          message ||
+          (isLocalDemoMode
+            ? "当前为本地 Demo 模式：可直接用多个 tab 验证大厅、房间、对战和结果页效果。"
+            : "")
+        }
         nickname={nickname}
         onCreate={async () => {
           try {

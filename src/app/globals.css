@@ -325,39 +325,224 @@ input {
 
 .battleStageMount {
   width: 100%;
-  max-width: 390px;
+  height: 100%;
   margin: 0 auto;
 }
 
 .battleHudPanel {
   display: grid;
   gap: 12px;
-  padding: 18px;
+  padding: 14px;
   border-radius: 24px;
-  background: rgba(255, 249, 240, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.96), rgba(255, 241, 221, 0.94)),
+    rgba(255, 249, 240, 0.92);
   border: 1px solid rgba(84, 52, 27, 0.14);
-  box-shadow: 0 20px 54px rgba(68, 43, 19, 0.12);
+  box-shadow: 0 18px 40px rgba(68, 43, 19, 0.12);
+}
+
+.battleHudPanel[data-tone="victory"] {
+  box-shadow: 0 18px 46px rgba(240, 167, 39, 0.22);
+}
+
+.battleHudPanel[data-tone="danger"],
+.battleHudPanel[data-tone="cooldown"],
+.battleHudPanel[data-tone="defeat"] {
+  box-shadow: 0 18px 46px rgba(194, 77, 46, 0.2);
+}
+
+.battleHudPanel[data-flash="wrong"] {
+  animation: battleHudShake 0.42s ease;
+}
+
+.battleHudPanel[data-flash="success"] {
+  animation: battleHudPulse 0.28s ease;
 }
 
 .battleHudHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
   color: #7b6451;
   font-weight: 800;
 }
 
+.battleHudHeaderCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.battleHudDeckLabel {
+  color: #9a5a2b;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.battleHudStatusLabel {
+  color: #291912;
+  font-size: 1.04rem;
+}
+
+.battleHudStatRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.battleHudStatPill {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 248, 238, 0.92);
+  color: #64442b;
+  font-size: 0.84rem;
+  font-weight: 900;
+  box-shadow: inset 0 0 0 1px rgba(132, 90, 48, 0.1);
+}
+
+.battleHudStatPill[data-kind="damage"] {
+  color: #9a411f;
+}
+
+.battleHudStatPill[data-kind="time"] {
+  color: #215aa9;
+}
+
 .battleHudQuestion {
   color: #1d1816;
-  font-size: clamp(1.8rem, 8vw, 2.6rem);
+  font-size: clamp(1.7rem, 7.4vw, 2.4rem);
   font-weight: 900;
   line-height: 1.1;
 }
 
 .battleHudHint {
-  color: #645646;
-  line-height: 1.5;
+  color: #6a523e;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.battleHudBody {
+  display: grid;
+}
+
+.battleHudPanel .questionForm {
+  display: grid;
+  gap: 12px;
+}
+
+.battleHudPanel .doubleInput {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.battleHudPanel .battleAnswerSlot {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(255, 250, 241, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(118, 79, 39, 0.12);
+}
+
+.battleHudPanel .battleAnswerLabel {
+  color: #8a5a33;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.battleHudPanel .answerInput {
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(117, 83, 48, 0.16);
+  background: rgba(255, 255, 255, 0.96);
+  text-align: center;
+  color: #241813;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.battleHudPanel .answerInput::placeholder {
+  color: #b08a68;
+}
+
+.battleHudPanel .answerInput:disabled {
+  background: rgba(246, 236, 223, 0.92);
+  color: #9c7e65;
+}
+
+.battleHudPanel .largeInput {
+  font-size: 1.48rem;
+}
+
+.battleHudPanel .questionForm[data-flash="wrong"] .answerInput {
+  border-color: rgba(188, 65, 34, 0.46);
+}
+
+.battleHudPanel .questionForm[data-flash="success"] .answerInput {
+  border-color: rgba(43, 131, 78, 0.42);
+}
+
+.battleFireButton {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 58px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ff9447 0%, #de4f2c 100%);
+  color: #fffdf7;
+  font-size: 1.04rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 16px 28px rgba(194, 77, 46, 0.28);
+  transform: translateY(0);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease,
+    filter 0.14s ease;
+}
+
+.battleFireButton:active:not(:disabled) {
+  transform: translateY(2px) scale(0.985);
+  box-shadow: 0 10px 18px rgba(194, 77, 46, 0.22);
+}
+
+.battleFireButton:hover:not(:disabled) {
+  filter: saturate(1.04) brightness(1.02);
+}
+
+.battleFireButton:disabled {
+  cursor: not-allowed;
+  background: linear-gradient(180deg, #dfc5a6 0%, #c7a37e 100%);
+  box-shadow: none;
+}
+
+.battleFireButtonGlow {
+  position: absolute;
+  inset: 7px;
+  z-index: -1;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 220, 175, 0.9), rgba(255, 220, 175, 0));
+  opacity: 0.7;
+}
+
+.battleFireButtonLabel {
+  position: relative;
+}
+
+.battleHudPanel .questionForm[data-flash="wrong"] .battleFireButton {
+  animation: battleFireWrong 0.42s ease;
+}
+
+.battleHudPanel .questionForm[data-flash="success"] .battleFireButton {
+  animation: battleFireSuccess 0.28s ease;
 }
 
 .roomPrepShell {
@@ -545,16 +730,19 @@ input {
   }
 
   .battleHudHeader {
-    flex-direction: column;
-    align-items: flex-start;
+    gap: 8px;
   }
 
-  .questionForm {
+  .battleHudPanel .questionForm {
     gap: 12px;
   }
 
-  .answerInput {
+  .battleHudPanel .answerInput {
     padding: 13px 14px;
+  }
+
+  .battleHudPanel .doubleInput {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -580,5 +768,61 @@ input {
     min-height: 0;
     padding: 14px;
     border-radius: 20px;
+  }
+}
+
+@keyframes battleHudShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes battleHudPulse {
+  0% {
+    transform: scale(0.99);
+  }
+  60% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes battleFireWrong {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes battleFireSuccess {
+  0% {
+    transform: scale(0.98);
+  }
+  60% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
   }
 }

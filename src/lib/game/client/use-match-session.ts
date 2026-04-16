@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import {
+  getMatchSnapshot,
+  restartRoom as restartDemoRoom,
+  submitAnswer as submitDemoAnswer,
+  tickMatch as tickDemoMatch,
+} from "@/lib/supabase/game-store";
 import type {
   CoordinatorCommand,
   CoordinatorMatchSnapshot,
   CoordinatorMessage,
 } from "@/lib/game/protocol/coordinator";
+import { hasSupabaseEnvConfigured } from "@/lib/supabase/env";
 
 type CommandResult = {
   ok: boolean;
@@ -48,8 +55,43 @@ export function useMatchSession(input: {
   const reconnectTimerRef = useRef<number | null>(null);
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
+  const useLocalDemoMode = !hasSupabaseEnvConfigured();
 
   useEffect(() => {
+    if (!roomCode) {
+      return;
+    }
+
+    if (useLocalDemoMode) {
+      let disposed = false;
+
+      const syncSnapshot = async () => {
+        const nextSnapshot = await getMatchSnapshot(initialSnapshot?.match?.id ?? "");
+
+        if (disposed) {
+          return;
+        }
+
+        setConnected(true);
+        setSnapshot(nextSnapshot as CoordinatorMatchSnapshot);
+      };
+
+      void syncSnapshot();
+
+      const handleStorage = () => {
+        void syncSnapshot();
+      };
+
+      window.addEventListener("storage", handleStorage);
+      window.addEventListener("little-net-game:demo-store-update", handleStorage as EventListener);
+
+      return () => {
+        disposed = true;
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener("little-net-game:demo-store-update", handleStorage as EventListener);
+      };
+    }
+
     if (!canConnect) {
       return;
     }
@@ -145,10 +187,50 @@ export function useMatchSession(input: {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [canConnect, nickname, playerId, roomCode]);
+  }, [canConnect, initialSnapshot?.match?.id, nickname, playerId, roomCode, useLocalDemoMode]);
+
+  useEffect(() => {
+    if (!useLocalDemoMode) {
+      return;
+    }
+
+    const matchId = snapshot?.match?.id;
+    const match = snapshot?.match;
+    const viewer = snapshot?.viewer;
+    const room = snapshot?.room;
+
+    if (!matchId || !match || !viewer || !room) {
+      return;
+    }
+
+    if (viewer.playerId !== room.hostPlayerId || match.phase === "finished") {
+      return;
+    }
+
+    let deadline = Date.parse(match.endsAt);
+
+    if (match.phase === "countdown") {
+      deadline = Date.parse(match.countdownEndsAt);
+    }
+
+    if (match.phase === "active") {
+      deadline = Math.min(deadline, Date.parse(match.questionDeadlineAt));
+    }
+
+    const delay = Math.max(0, deadline - Date.now() + 50);
+    const timer = window.setTimeout(() => {
+      tickDemoMatch(matchId).catch(() => undefined);
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [snapshot, useLocalDemoMode]);
 
   const sendCommand = (
-    command: Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">,
+    command:
+      | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">,
   ) =>
     new Promise<CommandResult>((resolve, reject) => {
       const socket = socketRef.current;
@@ -163,6 +245,32 @@ export function useMatchSession(input: {
       socket.send(JSON.stringify({ ...command, commandId }));
     });
 
+  const sendLocalCommand = async (
+    command:
+      | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">,
+  ): Promise<CommandResult> => {
+    const matchId = snapshot?.match?.id;
+
+    if (command.type === "room.restart") {
+      if (!roomCode) {
+        throw new Error("ROOM_NOT_FOUND");
+      }
+
+      await restartDemoRoom(roomCode);
+      setSnapshot((await getMatchSnapshot(matchId ?? "")) as CoordinatorMatchSnapshot);
+      return { ok: true, message: "房间已重置" };
+    }
+
+    if (!matchId) {
+      throw new Error("MATCH_NOT_FOUND");
+    }
+
+    const result = await submitDemoAnswer(matchId, command.payload.answer);
+    setSnapshot((await getMatchSnapshot(matchId)) as CoordinatorMatchSnapshot);
+    return result;
+  };
+
   return {
     connected,
     snapshot,
@@ -171,11 +279,26 @@ export function useMatchSession(input: {
       quotient?: string;
       remainder?: string;
     }) =>
-      sendCommand({
-        type: "match.submit_answer",
-        payload: {
-          answer,
-        },
-      }),
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "match.submit_answer",
+            payload: {
+              answer,
+            },
+          })
+        : sendCommand({
+            type: "match.submit_answer",
+            payload: {
+              answer,
+            },
+          }),
+    restartRoom: () =>
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "room.restart",
+          })
+        : sendCommand({
+            type: "room.restart",
+          }),
   };
 }

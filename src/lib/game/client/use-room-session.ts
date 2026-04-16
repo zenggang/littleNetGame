@@ -3,12 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import {
+  getRoomSnapshot,
+  joinRoom as joinDemoRoom,
+  startMatch as startDemoMatch,
+  switchTeam as switchDemoTeam,
+} from "@/lib/supabase/game-store";
 import type {
   CoordinatorCommand,
   CoordinatorMessage,
   CoordinatorRoomSnapshot,
 } from "@/lib/game/protocol/coordinator";
 import type { TeamName } from "@/lib/game/types";
+import { hasSupabaseEnvConfigured } from "@/lib/supabase/env";
 
 type CommandResult = {
   ok: boolean;
@@ -55,8 +62,45 @@ export function useRoomSession(input: {
   const reconnectTimerRef = useRef<number | null>(null);
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
+  const useLocalDemoMode = !hasSupabaseEnvConfigured();
 
   useEffect(() => {
+    if (!roomCode) {
+      return;
+    }
+
+    if (useLocalDemoMode) {
+      let disposed = false;
+
+      const syncSnapshot = async () => {
+        const nextSnapshot = await getRoomSnapshot(roomCode);
+
+        if (disposed || !nextSnapshot.session) {
+          setConnected(true);
+          setSnapshot((nextSnapshot as CoordinatorRoomSnapshot | null));
+          return;
+        }
+
+        setConnected(true);
+        setSnapshot(nextSnapshot as CoordinatorRoomSnapshot);
+      };
+
+      void syncSnapshot();
+
+      const handleStorage = () => {
+        void syncSnapshot();
+      };
+
+      window.addEventListener("storage", handleStorage);
+      window.addEventListener("little-net-game:demo-store-update", handleStorage as EventListener);
+
+      return () => {
+        disposed = true;
+        window.removeEventListener("storage", handleStorage);
+        window.removeEventListener("little-net-game:demo-store-update", handleStorage as EventListener);
+      };
+    }
+
     if (!canConnect) {
       return;
     }
@@ -135,7 +179,7 @@ export function useRoomSession(input: {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [canConnect, nickname, playerId, roomCode]);
+  }, [canConnect, nickname, playerId, roomCode, useLocalDemoMode]);
 
   const sendCommand = (command: RoomCommand) =>
     new Promise<CommandResult>((resolve, reject) => {
@@ -151,22 +195,60 @@ export function useRoomSession(input: {
       socket.send(JSON.stringify({ ...command, commandId }));
     });
 
+  const sendLocalCommand = async (
+    command: RoomCommand,
+  ): Promise<CommandResult> => {
+    if (command.type === "room.join") {
+      await joinDemoRoom({
+        roomCode,
+        nickname: command.payload.nickname,
+      });
+
+      setSnapshot((await getRoomSnapshot(roomCode)) as CoordinatorRoomSnapshot);
+      return { ok: true, message: "已进入房间" };
+    }
+
+    if (command.type === "room.switch_team") {
+      await switchDemoTeam(roomCode, command.payload.team);
+      setSnapshot((await getRoomSnapshot(roomCode)) as CoordinatorRoomSnapshot);
+      return { ok: true, message: "已切换阵营" };
+    }
+
+    const match = await startDemoMatch(roomCode);
+    setSnapshot((await getRoomSnapshot(roomCode)) as CoordinatorRoomSnapshot);
+    return { ok: true, message: "对战开始", matchId: match.id };
+  };
+
   return {
     connected,
     snapshot,
     joinRoom: (nextNickname: string) =>
-      sendCommand({
-        type: "room.join",
-        payload: { nickname: nextNickname },
-      }),
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "room.join",
+            payload: { nickname: nextNickname },
+          })
+        : sendCommand({
+            type: "room.join",
+            payload: { nickname: nextNickname },
+          }),
     switchTeam: (team: TeamName) =>
-      sendCommand({
-        type: "room.switch_team",
-        payload: { team },
-      }),
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "room.switch_team",
+            payload: { team },
+          })
+        : sendCommand({
+            type: "room.switch_team",
+            payload: { team },
+          }),
     startMatch: () =>
-      sendCommand({
-        type: "room.start_match",
-      }),
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "room.start_match",
+          })
+        : sendCommand({
+            type: "room.start_match",
+          }),
   };
 }

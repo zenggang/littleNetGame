@@ -6,7 +6,6 @@ import { useParams, useRouter } from "next/navigation";
 import {
   getMatchReport,
   getMatchSnapshot,
-  restartRoom,
   toUserMessage,
 } from "@/lib/supabase/game-store";
 import { buildMatchReport } from "@/lib/game/result/match-report";
@@ -41,6 +40,7 @@ export default function ResultPage() {
           },
           totalCorrect: reportRow.total_correct,
           durationMs: reportRow.duration_ms,
+          finalEventLog: normalizeEventLog(reportRow.final_event_log),
         }),
         roomCode: reportRow.room_code,
       });
@@ -65,6 +65,7 @@ export default function ResultPage() {
             durationMs:
               Date.parse(snapshot.match.endedAt ?? snapshot.match.endsAt) -
               Date.parse(snapshot.match.createdAt),
+            finalEventLog: normalizeEventLog(snapshot.match.events),
           }),
           roomCode: snapshot.room.code,
         });
@@ -124,16 +125,22 @@ export default function ResultPage() {
           </article>
         </div>
 
+        {report.timeline.length > 0 ? (
+          <section className={styles.scoreGrid}>
+            {report.timeline.map((item, index) => (
+              <article className={styles.scoreCard} key={`${item.createdAt}-${index}`}>
+                <strong>{item.label}</strong>
+                <span>{item.text}</span>
+              </article>
+            ))}
+          </section>
+        ) : null}
+
         <div className={styles.actions}>
           <button
             className="primaryButton"
-            onClick={async () => {
-              try {
-                await restartRoom(report.roomCode);
-                router.push(`/room/${report.roomCode}`);
-              } catch (nextError) {
-                setError(toUserMessage(nextError));
-              }
+            onClick={() => {
+              router.push(`/room/${report.roomCode}`);
             }}
             type="button"
           >
@@ -148,4 +155,13 @@ export default function ResultPage() {
       </section>
     </main>
   );
+}
+
+function normalizeEventLog(value: unknown[]) {
+  return value.filter((item): item is {
+    type?: string;
+    text?: string;
+    createdAt?: string;
+    damage?: number;
+  } => typeof item === "object" && item !== null);
 }
