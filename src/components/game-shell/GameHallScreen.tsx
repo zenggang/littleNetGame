@@ -4,9 +4,15 @@ import { useState } from "react";
 
 import { GameEntryModal } from "@/components/game-shell/GameEntryModal";
 
+type RoomCapacity = 2 | 3 | 4 | 6;
+
 type Props = {
+  capacity?: RoomCapacity;
+  message?: string;
   nickname: string;
   roomCode?: string;
+  submitting?: boolean;
+  onCapacityChange?: (value: RoomCapacity) => void;
   onNicknameChange: (value: string) => void;
   onRoomCodeChange?: (value: string) => void;
   onCreate: () => void;
@@ -14,8 +20,12 @@ type Props = {
 };
 
 export function GameHallScreen({
+  capacity = 2,
+  message = "",
   nickname,
   roomCode = "",
+  submitting = false,
+  onCapacityChange = () => undefined,
   onNicknameChange,
   onRoomCodeChange = () => undefined,
   onCreate,
@@ -36,29 +46,45 @@ export function GameHallScreen({
       </div>
 
       <div className="gameHallActions">
-        <button className="primaryButton" onClick={() => setModal("create")} type="button">
+        <button
+          className="primaryButton"
+          disabled={submitting}
+          onClick={() => setModal("create")}
+          type="button"
+        >
           创建游戏
         </button>
-        <button className="secondaryButton" onClick={() => setModal("join")} type="button">
+        <button
+          className="secondaryButton"
+          disabled={submitting}
+          onClick={() => setModal("join")}
+          type="button"
+        >
           加入游戏
         </button>
       </div>
 
       <GameEntryModal
+        capacity={capacity}
+        message={message}
         onClose={() => setModal(null)}
+        onCapacityChange={onCapacityChange}
         onConfirm={onCreate}
         onRoomCodeChange={() => undefined}
         open={modal === "create"}
         roomCode=""
+        submitting={submitting}
         title="创建游戏"
       />
 
       <GameEntryModal
+        message={message}
         onClose={() => setModal(null)}
         onConfirm={onJoin}
         onRoomCodeChange={onRoomCodeChange}
         open={modal === "join"}
         roomCode={roomCode}
+        submitting={submitting}
         title="加入游戏"
       />
     </section>
