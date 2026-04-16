@@ -10,6 +10,16 @@ import {
   type MatchState,
 } from "@/lib/game/protocol/state";
 
+export function createMatchSocketFactory(
+  openSocket: typeof openCoordinatorSocket,
+) {
+  return async (input: {
+    roomCode: string;
+    playerId: string;
+    nickname: string;
+  }) => openSocket(input);
+}
+
 export function useMatchSession(input: {
   roomCode: string;
   playerId: string;
@@ -24,10 +34,11 @@ export function useMatchSession(input: {
       return;
     }
 
+    const openMatchSocket = createMatchSocketFactory(openCoordinatorSocket);
     let cancelled = false;
     let socket: WebSocket | null = null;
 
-    void openCoordinatorSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
+    void openMatchSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
       if (cancelled) {
         nextSocket.close();
         return;

@@ -4,6 +4,16 @@ import { useEffect, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
 
+export function createRoomSocketFactory(
+  openSocket: typeof openCoordinatorSocket,
+) {
+  return async (input: {
+    roomCode: string;
+    playerId: string;
+    nickname: string;
+  }) => openSocket(input);
+}
+
 export function useRoomSession(input: {
   roomCode: string;
   playerId: string;
@@ -18,10 +28,11 @@ export function useRoomSession(input: {
       return;
     }
 
+    const openRoomSocket = createRoomSocketFactory(openCoordinatorSocket);
     let cancelled = false;
     let socket: WebSocket | null = null;
 
-    void openCoordinatorSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
+    void openRoomSocket({ roomCode, playerId, nickname }).then((nextSocket) => {
       if (cancelled) {
         nextSocket.close();
         return;

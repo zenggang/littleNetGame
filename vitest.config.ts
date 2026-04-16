@@ -11,6 +11,7 @@ export default defineConfig({
       "src/app/**/*.test.tsx",
       "src/lib/server/**/*.test.ts",
       "src/lib/game/content/**/*.test.ts",
+      "src/lib/game/client/**/*.test.ts",
       "src/lib/game/protocol/**/*.test.ts",
       "src/lib/game/result/**/*.test.ts",
       "src/components/**/*.test.ts",
