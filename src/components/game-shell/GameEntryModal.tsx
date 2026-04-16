@@ -74,7 +74,11 @@ export function GameEntryModal({
             value={roomCode}
           />
         )}
-        {message ? <p className="gameModalMessage">{message}</p> : null}
+        {message ? (
+          <p aria-live="assertive" className="gameModalMessage" role="alert">
+            {message}
+          </p>
+        ) : null}
         <button className="primaryButton" disabled={submitting} onClick={onConfirm} type="button">
           {confirmLabel}
         </button>

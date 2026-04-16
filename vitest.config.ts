@@ -7,6 +7,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: [
+      "src/app/**/*.test.ts",
+      "src/app/**/*.test.tsx",
       "src/lib/server/**/*.test.ts",
       "src/lib/game/content/**/*.test.ts",
       "src/lib/game/protocol/**/*.test.ts",

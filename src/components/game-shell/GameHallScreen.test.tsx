@@ -48,7 +48,7 @@ describe("GameHallScreen", () => {
     expect(onCapacityChange).toHaveBeenCalledWith(6);
   });
 
-  it("shows visible submitting and error feedback inside the active modal", async () => {
+  it("keeps failure feedback visible after the join modal closes", async () => {
     const user = userEvent.setup();
     const view = render(
       <GameHallScreen
@@ -76,7 +76,24 @@ describe("GameHallScreen", () => {
       />,
     );
 
-    expect(screen.getByText("没找到这个房间。")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("没找到这个房间。");
     expect(screen.getByRole("button", { name: "加入中..." })).toBeDisabled();
+
+    view.rerender(
+      <GameHallScreen
+        message="没找到这个房间。"
+        nickname="阿杰"
+        onCreate={vi.fn()}
+        onJoin={vi.fn()}
+        onNicknameChange={vi.fn()}
+        roomCode="ABCD"
+        submitting={false}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "关闭" }));
+
+    expect(screen.queryByRole("dialog", { name: "加入游戏" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("没找到这个房间。");
   });
 });

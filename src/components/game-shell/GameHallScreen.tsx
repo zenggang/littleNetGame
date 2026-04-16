@@ -64,6 +64,12 @@ export function GameHallScreen({
         </button>
       </div>
 
+      {message ? (
+        <p aria-live="polite" className="gameHallMessage" role="status">
+          {message}
+        </p>
+      ) : null}
+
       <GameEntryModal
         capacity={capacity}
         message={message}
