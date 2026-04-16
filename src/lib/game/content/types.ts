@@ -10,6 +10,9 @@ export type InputSchema =
   | "quotient-remainder"
   | "single-choice";
 
+// EvaluatorId keeps content packs linked to the supported answer evaluators.
+export type EvaluatorId = "math-single-number" | "math-quotient-remainder";
+
 // ContentPack is the shared catalog contract consumed by room presets and gameplay.
 export type ContentPack = {
   id: string;
@@ -17,7 +20,7 @@ export type ContentPack = {
   grade: GradeCode;
   title: string;
   questionTypes: InputSchema[];
-  evaluatorIds: string[];
+  evaluatorIds: EvaluatorId[];
 };
 
 // RoomPreset captures the default room setup that points at a content pack and ruleset.

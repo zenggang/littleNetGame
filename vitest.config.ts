@@ -8,7 +8,7 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: [
       "src/lib/server/**/*.test.ts",
-      "src/lib/game/content/catalog.test.ts",
+      "src/lib/game/content/**/*.test.ts",
     ],
   },
   resolve: {
