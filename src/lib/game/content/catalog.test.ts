@@ -14,8 +14,25 @@ describe("content catalog", () => {
       "single-number",
       "quotient-remainder",
     ]);
+    expect(pack.evaluatorIds).toEqual([
+      "math-single-number",
+      "math-quotient-remainder",
+    ]);
     expect(
       evaluateAnswer("math-single-number", { value: "42" }, { value: 42 }),
     ).toBe(true);
+  });
+
+  it("rejects empty answer fields instead of coercing them to zero", () => {
+    expect(
+      evaluateAnswer("math-single-number", { value: "" }, { value: 0 }),
+    ).toBe(false);
+    expect(
+      evaluateAnswer(
+        "math-quotient-remainder",
+        { quotient: "3", remainder: "" },
+        { quotient: 3, remainder: 0 },
+      ),
+    ).toBe(false);
   });
 });

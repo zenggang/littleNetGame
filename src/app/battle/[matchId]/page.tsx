@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { BattleHud } from "@/components/battle-runtime/BattleHud";
+import { PhaserBattleStage } from "@/components/battle-runtime/PhaserBattleStage";
+import { buildBattleViewModel } from "@/components/battle-runtime/build-battle-view-model";
 import { QuestionForm } from "@/components/game/question-form";
+import { useMatchSession } from "@/lib/game/client/use-match-session";
+import { matchStateFromSnapshot } from "@/lib/game/protocol/from-supabase-snapshot";
 import {
   getMatchSnapshot,
   restartRoom,
@@ -16,7 +21,6 @@ import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
-const ATTACK_EFFECT_MS = 3000;
 
 export default function BattlePage() {
   const params = useParams<{ matchId: string }>();
@@ -66,29 +70,51 @@ export default function BattlePage() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      tickMatch(matchId).catch(() => undefined);
-    }, 500);
+    }, 250);
 
     return () => window.clearInterval(timer);
-  }, [matchId]);
-
-  const latestEvent = snapshot?.match?.events[0];
-  const recentAttack = snapshot?.match?.events.find((event) => {
-    if (event.type !== "answer_correct") {
-      return false;
-    }
-
-    return now - Date.parse(event.createdAt) < ATTACK_EFFECT_MS;
-  });
-  const effectKey = recentAttack?.id ?? latestEvent?.id ?? "idle";
-  const attackTeam = recentAttack?.team ?? null;
-  const injuredTeam = recentAttack?.targetTeam ?? null;
+  }, []);
 
   useEffect(() => {
     if (snapshot?.match?.phase === "finished") {
       router.push(`/result/${matchId}`);
     }
   }, [matchId, router, snapshot?.match?.phase]);
+
+  const matchSession = useMatchSession({
+    roomCode: snapshot?.room?.code ?? "",
+    playerId: snapshot?.session?.playerId ?? "",
+    nickname: snapshot?.session?.nickname ?? "",
+  });
+
+  useEffect(() => {
+    if (!snapshot?.match) {
+      return;
+    }
+
+    let deadline = Date.parse(snapshot.match.endsAt);
+
+    if (snapshot.match.phase === "countdown") {
+      deadline = Date.parse(snapshot.match.countdownEndsAt);
+    }
+
+    if (snapshot.match.phase === "active") {
+      deadline = Math.min(deadline, Date.parse(snapshot.match.questionDeadlineAt));
+    }
+
+    const delay = Math.max(0, deadline - Date.now() + 50);
+    const timer = window.setTimeout(() => {
+      tickMatch(matchId)
+        .then(() => loadSnapshot())
+        .catch(() => undefined);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    loadSnapshot,
+    matchId,
+    snapshot?.match,
+  ]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -115,222 +141,56 @@ export default function BattlePage() {
 
   const room = snapshot.room;
   const match = snapshot.match;
-  const redMembers = snapshot.members.filter((member) => member.team === "red");
-  const blueMembers = snapshot.members.filter((member) => member.team === "blue");
-  const countdownSeconds = Math.max(
-    0,
-    Math.ceil((Date.parse(match.countdownEndsAt) - now) / 1000),
-  );
-  const activeSeconds = Math.max(
-    0,
-    Math.ceil((Date.parse(match.endsAt) - now) / 1000),
-  );
+  const state = matchSession.lastSeq > 0
+    ? matchSession
+    : matchStateFromSnapshot({ match });
+  const viewModel = buildBattleViewModel(state, now);
   const cooldownUntil = snapshot.viewer
     ? match.cooldowns[snapshot.viewer.playerId] ?? 0
     : 0;
   const isCoolingDown = cooldownUntil > now;
 
-  const renderArchers = (team: "red" | "blue", count: number) =>
-    Array.from({ length: Math.max(1, count) }, (_, index) => (
-      <span
-        key={`${team}-${count}-${index}`}
-        className={`${styles.archer} ${styles[team]} ${attackTeam === team ? styles.cheer : ""}`}
-      >
-        <span className={styles.archerHead} />
-        <span className={styles.archerBody} />
-        <span className={styles.archerBow} />
-      </span>
-    ));
-
   return (
     <main className={styles.page}>
-      <section className={styles.battleShell}>
-        <header className={styles.header}>
+      <section className={styles.shell}>
+        <header className={styles.topBar}>
           <div>
             <p className={styles.kicker}>{match.mode} · 全房同题</p>
-            <h1>弓箭手对战</h1>
+            <strong>{viewModel.topBarLabel}</strong>
           </div>
-          <div className={styles.timerCard}>
-            <strong>{match.phase === "countdown" ? countdownSeconds : activeSeconds}</strong>
-            <span>{match.phase === "countdown" ? "开战倒计时" : "剩余秒数"}</span>
-          </div>
+          <span className={styles.timerPill}>{viewModel.topBarTimerLabel}</span>
         </header>
 
-        <section className={styles.battlefield}>
-          {injuredTeam ? (
-            <div
-              key={`damage-${effectKey}`}
-              className={`${styles.damageVignette} ${injuredTeam === "red" ? styles.damageLeft : styles.damageRight}`}
-            />
-          ) : null}
-          <div className={styles.skyLayer}>
-            <span className={styles.cloud} />
-            <span className={styles.cloud} />
-            <span className={styles.cloud} />
-          </div>
-          <div className={styles.sunGlow} />
-
-          <article
-            className={`${styles.camp} ${styles.redCamp} ${attackTeam === "red" ? styles.firingCamp : ""} ${injuredTeam === "red" ? styles.injuredCamp : ""}`}
-          >
-            <div className={styles.bannerPole} />
-            {injuredTeam === "red" ? <div key={`red-hurt-${effectKey}`} className={styles.campDamageFlash} /> : null}
-            <div className={styles.teamHud}>
-              <div>
-                <p className={styles.campLabel}>红队营地</p>
-                <h2>{redMembers.length} 名弓箭手</h2>
-              </div>
-              <div className={styles.hpBadge}>
-                <strong>{match.teams.red.hpCurrent}</strong>
-                <span>/ {match.teams.red.hpMax}</span>
-              </div>
-            </div>
-            <div className={styles.hpTrack}>
-              <span
-                className={`${styles.hpLagFill} ${styles.redLagFill}`}
-                style={{
-                  width: `${(match.teams.red.hpCurrent / match.teams.red.hpMax) * 100}%`,
-                }}
-              />
-              <span
-                className={`${styles.hpFill} ${styles.redFill}`}
-                style={{
-                  width: `${(match.teams.red.hpCurrent / match.teams.red.hpMax) * 100}%`,
-                }}
-              />
-            </div>
-            <div className={styles.archerLine}>{renderArchers("red", redMembers.length)}</div>
-            <ul className={styles.memberList}>
-              {redMembers.map((member) => (
-                <li key={member.playerId}>
-                  <span>{member.nickname}</span>
-                  {member.playerId === snapshot.session?.playerId ? <em>我</em> : null}
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          <div className={styles.centerStage}>
-            <div className={styles.eventRibbon}>
-              <strong>{latestEvent?.text ?? "双方列阵，准备开战。"}</strong>
-              <span>题号 {match.questionIndex}</span>
-            </div>
-
-            <div className={styles.arrowField}>
-              <div className={styles.groundShadow} />
-              {recentAttack?.team === "red" ? (
-                <span key={`red-${effectKey}`} className={`${styles.projectile} ${styles.projectileRed}`}>
-                  <span className={styles.arrowGlow} />
-                </span>
-              ) : null}
-              {recentAttack?.team === "blue" ? (
-                <span key={`blue-${effectKey}`} className={`${styles.projectile} ${styles.projectileBlue}`}>
-                  <span className={styles.arrowGlow} />
-                </span>
-              ) : null}
-              {latestEvent?.type === "question_timeout" ? (
-                <span key={`dust-${effectKey}`} className={styles.timeoutDust}>
-                  风沙掠过战场
-                </span>
-              ) : null}
-              <div className={styles.targetMarks}>
-                <span className={attackTeam === "red" ? styles.hitFlash : styles.idleMark} />
-                <span className={attackTeam === "blue" ? styles.hitFlash : styles.idleMark} />
-              </div>
-              {recentAttack?.damage ? (
-                <span
-                  key={`damage-${effectKey}`}
-                  className={`${styles.damageNumber} ${injuredTeam === "red" ? styles.damageLeftFloat : styles.damageRightFloat}`}
-                >
-                  -{recentAttack.damage}
-                </span>
-              ) : null}
-              {recentAttack ? (
-                <span
-                  key={`impact-${effectKey}`}
-                  className={`${styles.impactBurst} ${injuredTeam === "red" ? styles.impactLeft : styles.impactRight}`}
-                >
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </span>
-              ) : null}
-            </div>
-          </div>
-
-          <article
-            className={`${styles.camp} ${styles.blueCamp} ${attackTeam === "blue" ? styles.firingCamp : ""} ${injuredTeam === "blue" ? styles.injuredCamp : ""}`}
-          >
-            <div className={styles.bannerPole} />
-            {injuredTeam === "blue" ? <div key={`blue-hurt-${effectKey}`} className={styles.campDamageFlash} /> : null}
-            <div className={styles.teamHud}>
-              <div>
-                <p className={styles.campLabel}>蓝队营地</p>
-                <h2>{blueMembers.length} 名弓箭手</h2>
-              </div>
-              <div className={styles.hpBadge}>
-                <strong>{match.teams.blue.hpCurrent}</strong>
-                <span>/ {match.teams.blue.hpMax}</span>
-              </div>
-            </div>
-            <div className={styles.hpTrack}>
-              <span
-                className={`${styles.hpLagFill} ${styles.blueLagFill}`}
-                style={{
-                  width: `${(match.teams.blue.hpCurrent / match.teams.blue.hpMax) * 100}%`,
-                }}
-              />
-              <span
-                className={`${styles.hpFill} ${styles.blueFill}`}
-                style={{
-                  width: `${(match.teams.blue.hpCurrent / match.teams.blue.hpMax) * 100}%`,
-                }}
-              />
-            </div>
-            <div className={`${styles.archerLine} ${styles.archerLineRight}`}>
-              {renderArchers("blue", blueMembers.length)}
-            </div>
-            <ul className={styles.memberList}>
-              {blueMembers.map((member) => (
-                <li key={member.playerId}>
-                  <span>{member.nickname}</span>
-                  {member.playerId === snapshot.session?.playerId ? <em>我</em> : null}
-                </li>
-              ))}
-            </ul>
-          </article>
+        <section className={styles.stageCard}>
+          <PhaserBattleStage state={state} />
         </section>
 
-        <section className={styles.questionCard}>
-          <div className={styles.questionHeader}>
-            <span>当前弹药题</span>
-            <strong>伤害 {match.currentQuestion.damage}</strong>
-          </div>
-          <h2>{match.currentQuestion.prompt}</h2>
-          <p className={styles.questionHint}>
-            {match.phase === "countdown"
+        {viewModel.questionCard ? (
+          <BattleHud
+            damage={viewModel.questionCard.damage}
+            hint={match.phase === "countdown"
               ? "倒计时结束后才能提交"
               : isCoolingDown
                 ? "你刚刚答错了，先等 1 秒"
                 : "谁先答对，谁的队伍立刻发箭"}
-          </p>
-
-          <QuestionForm
-            question={match.currentQuestion}
-            disabled={match.phase !== "active" || isCoolingDown || !snapshot.viewer}
-            onSubmit={async (payload) => {
-              try {
-                const result = await submitAnswer(matchId, payload);
-                setFeedback(result.message);
-                await loadSnapshot();
-              } catch (nextError) {
-                setError(toUserMessage(nextError));
-              }
-            }}
-          />
-        </section>
+            prompt={viewModel.questionCard.prompt}
+            secondsLeft={viewModel.questionCard.secondsLeft}
+          >
+            <QuestionForm
+              question={match.currentQuestion}
+              disabled={match.phase !== "active" || isCoolingDown || !snapshot.viewer}
+              onSubmit={async (payload) => {
+                try {
+                  const result = await submitAnswer(matchId, payload);
+                  setFeedback(result.message);
+                  await loadSnapshot();
+                } catch (nextError) {
+                  setError(toUserMessage(nextError));
+                }
+              }}
+            />
+          </BattleHud>
+        ) : null}
 
         <footer className={styles.footer}>
           <p>{error || feedback || "保持专注，抢在别人前面答出来。"}</p>

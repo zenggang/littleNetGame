@@ -34,6 +34,23 @@ type SubmitAnswerResult = {
   message: string;
 };
 
+type MatchReportRow = {
+  match_id: string;
+  room_code: string;
+  winner_team: TeamName;
+  win_reason: "hp_zero" | "time_up";
+  duration_ms: number;
+  total_correct: {
+    red: number;
+    blue: number;
+  };
+  final_hp: {
+    red: number;
+    blue: number;
+  };
+  final_event_log: unknown[];
+};
+
 type SessionTokenLike = {
   access_token: string;
 };
@@ -355,6 +372,23 @@ export async function getMatchSnapshot(matchId: string) {
   });
 
   return normalizeMatchSnapshot(data);
+}
+
+export async function getMatchReport(matchId: string) {
+  await ensureSession();
+
+  const client = requireClient();
+  const { data, error } = await client
+    .from("match_reports")
+    .select("*")
+    .eq("match_id", matchId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as MatchReportRow;
 }
 
 export async function startAuthedSubscription(

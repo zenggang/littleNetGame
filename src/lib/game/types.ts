@@ -1,5 +1,3 @@
-import type { InputSchema } from "@/lib/game/content/types";
-
 export type TeamName = "red" | "blue";
 
 export type MatchMode = "1v1" | "1v2" | "1v3" | "2v2" | "3v3";
@@ -27,7 +25,8 @@ export type QuestionType =
   | "division"
   | "remainder-division";
 
-export type AnswerKind = Exclude<InputSchema, "single-choice">;
+// AnswerKind stays local to question generation so gameplay types do not depend on content catalog types.
+export type AnswerKind = "single-number" | "quotient-remainder";
 
 export type MathQuestion = {
   key: string;

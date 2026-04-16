@@ -1,12 +1,12 @@
 import { mathGrade2CorePack } from "@/lib/game/content/packs/math-g2";
 import type { ContentPack, RoomPreset } from "@/lib/game/content/types";
 
-// Keep the catalog explicit so the first shipped pack is easy to audit and extend.
+// Keep the catalog explicit so the shipped starter content is easy to audit and extend.
 const packs: Record<string, ContentPack> = {
   [mathGrade2CorePack.id]: mathGrade2CorePack,
 };
 
-// Room presets describe the default subject/grade pairing exposed to the lobby.
+// Presets describe the room-level defaults that map players onto a pack and ruleset.
 const presets: RoomPreset[] = [
   {
     subject: "math",

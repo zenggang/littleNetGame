@@ -4,31 +4,75 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
+  getMatchReport,
   getMatchSnapshot,
   restartRoom,
-  subscribeToMatch,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import { buildMatchReport } from "@/lib/game/result/match-report";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
+
+type ResultReport = ReturnType<typeof buildMatchReport> & {
+  roomCode: string;
+};
 
 export default function ResultPage() {
   const params = useParams<{ matchId: string }>();
   const router = useRouter();
   const matchId = String(params.matchId ?? "");
   const hydrated = useHydrated();
-  const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getMatchSnapshot>> | null>(null);
   const [error, setError] = useState("");
+  const [report, setReport] = useState<ResultReport | null>(null);
 
-  const loadSnapshot = useCallback(async () => {
+  const loadReport = useCallback(async () => {
     try {
-      const nextSnapshot = await getMatchSnapshot(matchId);
-      setSnapshot(nextSnapshot);
+      const reportRow = await getMatchReport(matchId);
+
+      setReport({
+        ...buildMatchReport({
+          winner: reportRow.winner_team,
+          winReason: reportRow.win_reason,
+          teams: {
+            red: { hpCurrent: reportRow.final_hp.red },
+            blue: { hpCurrent: reportRow.final_hp.blue },
+          },
+          totalCorrect: reportRow.total_correct,
+          durationMs: reportRow.duration_ms,
+        }),
+        roomCode: reportRow.room_code,
+      });
       setError("");
-    } catch (nextError) {
-      setError(toUserMessage(nextError));
+    } catch {
+      try {
+        const snapshot = await getMatchSnapshot(matchId);
+
+        if (!snapshot.match || !snapshot.room) {
+          throw new Error("结算找不到了");
+        }
+
+        setReport({
+          ...buildMatchReport({
+            winner: snapshot.match.winner ?? "red",
+            winReason: snapshot.match.winReason ?? "time_up",
+            teams: {
+              red: { hpCurrent: snapshot.match.teams.red.hpCurrent },
+              blue: { hpCurrent: snapshot.match.teams.blue.hpCurrent },
+            },
+            totalCorrect: snapshot.match.totalCorrect,
+            durationMs:
+              Date.parse(snapshot.match.endedAt ?? snapshot.match.endsAt) -
+              Date.parse(snapshot.match.createdAt),
+          }),
+          roomCode: snapshot.room.code,
+        });
+        setError("");
+      } catch (nextError) {
+        setReport(null);
+        setError(toUserMessage(nextError));
+      }
     }
   }, [matchId]);
 
@@ -38,79 +82,45 @@ export default function ResultPage() {
     }
 
     const frame = window.requestAnimationFrame(() => {
-      void loadSnapshot();
+      void loadReport();
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [hydrated, loadSnapshot]);
+  }, [hydrated, loadReport]);
 
-  useEffect(() => {
-    const roomId = snapshot?.room?.id;
-    const activeMatchId = snapshot?.match?.id;
-
-    if (!hydrated || !roomId || !activeMatchId) {
-      return;
-    }
-
-    return subscribeToMatch(roomId, activeMatchId, () => {
-      loadSnapshot();
-    });
-  }, [hydrated, loadSnapshot, snapshot?.match?.id, snapshot?.room?.id]);
-
-  if (!hydrated || !snapshot) {
+  if (!hydrated || !report) {
     return (
       <main className={styles.page}>
         <section className={styles.card}>
-          <h1>结算加载中</h1>
+          <h1>{error || "结算加载中"}</h1>
         </section>
       </main>
     );
   }
-
-  if (!snapshot.match || !snapshot.room) {
-    return (
-      <main className={styles.page}>
-        <section className={styles.card}>
-          <h1>{error || "结算找不到了"}</h1>
-          <button className="primaryButton" onClick={() => router.push("/")} type="button">
-            返回大厅
-          </button>
-        </section>
-      </main>
-    );
-  }
-
-  const room = snapshot.room;
-  const match = snapshot.match;
-  const winnerLabel = match.winner === "red" ? "红队胜利" : "蓝队胜利";
 
   return (
     <main className={styles.page}>
       <section className={styles.card}>
         <p className={styles.kicker}>Winner</p>
-        <h1>{winnerLabel}</h1>
-        <p className={styles.summary}>
-          {match.winReason === "hp_zero"
-            ? "有一方血量归零，战斗提前结束。"
-            : "60 秒结束后，胜负已经判定。"}
-        </p>
+        <h1>{report.headline}</h1>
+        <p className={styles.summary}>{report.summary}</p>
 
         <div className={styles.scoreGrid}>
           <article className={styles.scoreCard}>
             <strong>红队血量</strong>
-            <span>{match.teams.red.hpCurrent}</span>
+            <span>{report.stats.redHp}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>蓝队血量</strong>
-            <span>{match.teams.blue.hpCurrent}</span>
+            <span>{report.stats.blueHp}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>红队答对</strong>
-            <span>{match.totalCorrect.red}</span>
+            <span>{report.stats.redCorrect}</span>
           </article>
           <article className={styles.scoreCard}>
             <strong>蓝队答对</strong>
-            <span>{match.totalCorrect.blue}</span>
+            <span>{report.stats.blueCorrect}</span>
           </article>
         </div>
 
@@ -119,8 +129,8 @@ export default function ResultPage() {
             className="primaryButton"
             onClick={async () => {
               try {
-                await restartRoom(room.code);
-                router.push(`/room/${room.code}`);
+                await restartRoom(report.roomCode);
+                router.push(`/room/${report.roomCode}`);
               } catch (nextError) {
                 setError(toUserMessage(nextError));
               }
@@ -133,6 +143,8 @@ export default function ResultPage() {
             返回大厅
           </button>
         </div>
+
+        {error ? <p className={styles.summary}>{error}</p> : null}
       </section>
     </main>
   );
