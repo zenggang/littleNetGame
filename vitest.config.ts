@@ -9,6 +9,7 @@ export default defineConfig({
     include: [
       "src/lib/server/**/*.test.ts",
       "src/lib/game/content/**/*.test.ts",
+      "src/lib/game/protocol/**/*.test.ts",
     ],
   },
   resolve: {
