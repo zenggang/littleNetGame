@@ -1,4 +1,4 @@
-import type { InputSchema } from "@/lib/game/content/types";
+import type { MatchInputSchema } from "@/lib/game/protocol/events";
 import type { TeamName } from "@/lib/game/types";
 
 export type MatchState = {
@@ -7,7 +7,7 @@ export type MatchState = {
   currentQuestion: null | {
     id: string;
     prompt: string;
-    inputSchema: InputSchema;
+    inputSchema: MatchInputSchema;
     damage: number;
     deadlineAt: string;
   };

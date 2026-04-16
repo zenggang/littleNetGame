@@ -1,5 +1,6 @@
-import type { InputSchema } from "@/lib/game/content/types";
 import type { TeamName } from "@/lib/game/types";
+
+export type MatchInputSchema = "single-number" | "quotient-remainder";
 
 export type MatchEvent =
   | {
@@ -10,7 +11,7 @@ export type MatchEvent =
         question: {
           id: string;
           prompt: string;
-          inputSchema: InputSchema;
+          inputSchema: MatchInputSchema;
           damage: number;
           deadlineAt: string;
         };
