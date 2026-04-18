@@ -1,6 +1,12 @@
 import * as Phaser from "phaser";
 
 import type { BattleStageCue } from "@/components/battle-runtime/build-battle-view-model";
+import {
+  BATTLE_STAGE_ASSET_KEYS,
+  BATTLE_STAGE_ASSET_PATHS,
+  getCampAssetLayout,
+  getCampBounds as getStageCampBounds,
+} from "@/components/battle-runtime/scenes/battle-stage-assets";
 import type { MatchState } from "@/lib/game/protocol/state";
 import type { TeamName } from "@/lib/game/types";
 
@@ -33,7 +39,9 @@ export class BattleScene extends Phaser.Scene {
   private matchState: MatchState;
   private ready = false;
   private baseLayer?: Phaser.GameObjects.Graphics;
+  private assetLayer?: Phaser.GameObjects.Container;
   private overlayLayer?: Phaser.GameObjects.Container;
+  private campSprites: Phaser.GameObjects.Image[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
   private viewport = { width: 390, height: 560 };
   private lastCueId: string | null = null;
@@ -43,8 +51,20 @@ export class BattleScene extends Phaser.Scene {
     this.matchState = initialState;
   }
 
+  /**
+   * 运行时 PNG 资源统一在 Scene preload 阶段注册。
+   * 这样 BattleScene 只依赖稳定 key，不需要知道 public 目录里的真实文件名细节。
+   */
+  preload() {
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.red.base, BATTLE_STAGE_ASSET_PATHS.red.base);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.blue.base, BATTLE_STAGE_ASSET_PATHS.blue.base);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.red.turret, BATTLE_STAGE_ASSET_PATHS.red.turret);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.blue.turret, BATTLE_STAGE_ASSET_PATHS.blue.turret);
+  }
+
   create() {
     this.baseLayer = this.add.graphics();
+    this.assetLayer = this.add.container(0, 0);
     this.overlayLayer = this.add.container(0, 0);
     this.viewport = {
       width: this.scale.width || this.viewport.width,
@@ -96,6 +116,7 @@ export class BattleScene extends Phaser.Scene {
     const rightCamp = this.getCampBounds("blue");
 
     base.clear();
+    this.clearCampSprites();
     this.clearLabels();
 
     // 顶部天空到底部地面的渐变，保持“玩具战场”而不是普通网页卡片的第一眼观感。
@@ -118,11 +139,12 @@ export class BattleScene extends Phaser.Scene {
     this.drawPhaseAccent(width, height);
   }
 
-  private drawCamp(team: TeamName, bounds: Phaser.Geom.Rectangle) {
+  private drawCamp(team: TeamName, bounds: ReturnType<typeof getStageCampBounds>) {
     if (!this.baseLayer) {
       return;
     }
 
+    const layout = getCampAssetLayout(this.viewport, team);
     const palette = CAMP_PALETTES[team];
     const hp = this.matchState.teams[team];
     const isWinner = this.matchState.phase === "finished" && this.matchState.winner === team;
@@ -131,14 +153,13 @@ export class BattleScene extends Phaser.Scene {
       this.matchState.winner !== null &&
       this.matchState.winner !== team;
     const base = this.baseLayer;
-    const towerWidth = bounds.width * 0.22;
-    const towerHeight = bounds.height * 0.38;
     const mainY = bounds.y + bounds.height * 0.24;
     const mainHeight = bounds.height * 0.58;
+    const bannerY = mainY - bounds.height * 0.18;
     const hpRatio = Math.max(0, Math.min(1, hp.hpCurrent / hp.hpMax));
     const hpBarWidth = bounds.width * 0.74;
     const hpBarX = bounds.x + bounds.width * 0.13;
-    const hpBarY = bounds.y + bounds.height * 0.8;
+    const hpBarY = bounds.y + bounds.height * 0.68;
 
     if (isWinner) {
       base.fillStyle(palette.glow, 0.18);
@@ -148,59 +169,48 @@ export class BattleScene extends Phaser.Scene {
     base.fillStyle(0x2f1e14, 0.12);
     base.fillRoundedRect(bounds.x + 6, bounds.y + 12, bounds.width, bounds.height, 28);
 
-    base.fillStyle(0xfaf6ec, 0.92);
+    /**
+     * 正式 runtime 资产已经承担了基地和炮塔主体。
+     * 这里保留简化后的阵地底板和 HP 条，让场景继续有“站位感”，但不再和 PNG 细节打架。
+     */
+    base.fillStyle(0xf8f0de, 0.72);
     base.fillRoundedRect(bounds.x, mainY, bounds.width, mainHeight, 28);
-    base.lineStyle(4, palette.frame, 0.3);
+    base.lineStyle(4, palette.frame, 0.24);
     base.strokeRoundedRect(bounds.x, mainY, bounds.width, mainHeight, 28);
-
-    base.fillStyle(0xf7efe0, 0.96);
-    base.fillRoundedRect(bounds.x + bounds.width * 0.04, mainY - towerHeight * 0.44, towerWidth, towerHeight, 18);
-    base.fillRoundedRect(
-      bounds.right - bounds.width * 0.04 - towerWidth,
-      mainY - towerHeight * 0.44,
-      towerWidth,
-      towerHeight,
-      18,
-    );
-    base.lineStyle(4, palette.frame, 0.26);
-    base.strokeRoundedRect(bounds.x + bounds.width * 0.04, mainY - towerHeight * 0.44, towerWidth, towerHeight, 18);
-    base.strokeRoundedRect(
-      bounds.right - bounds.width * 0.04 - towerWidth,
-      mainY - towerHeight * 0.44,
-      towerWidth,
-      towerHeight,
-      18,
-    );
 
     base.fillStyle(palette.banner, 1);
     if (team === "red") {
       base.fillTriangle(
         bounds.x + bounds.width * 0.18,
-        mainY - towerHeight * 0.44 - 8,
+        bannerY - 8,
         bounds.x + bounds.width * 0.18 + 26,
-        mainY - towerHeight * 0.44 + 4,
+        bannerY + 4,
         bounds.x + bounds.width * 0.18,
-        mainY - towerHeight * 0.44 + 18,
+        bannerY + 18,
       );
     } else {
       base.fillTriangle(
         bounds.right - bounds.width * 0.18,
-        mainY - towerHeight * 0.44 - 8,
+        bannerY - 8,
         bounds.right - bounds.width * 0.18 - 26,
-        mainY - towerHeight * 0.44 + 4,
+        bannerY + 4,
         bounds.right - bounds.width * 0.18,
-        mainY - towerHeight * 0.44 + 18,
+        bannerY + 18,
       );
     }
 
-    base.fillStyle(palette.frame, 0.9);
-    base.fillRoundedRect(
-      bounds.x + bounds.width * 0.14,
-      bounds.y + bounds.height * 0.56,
-      bounds.width * 0.72,
-      bounds.height * 0.08,
-      16,
-    );
+    const baseSprite = this.add.image(layout.base.x, layout.base.y, layout.base.key);
+    this.fitSpriteIntoBox(baseSprite, layout.base.displayWidth, layout.base.displayHeight);
+
+    const turretSprite = this.add.image(layout.turret.x, layout.turret.y, layout.turret.key);
+    this.fitSpriteIntoBox(turretSprite, layout.turret.displayWidth, layout.turret.displayHeight);
+    turretSprite.setFlipX(team === "blue");
+
+    this.assetLayer?.add([baseSprite, turretSprite]);
+    this.campSprites.push(baseSprite, turretSprite);
+
+    base.fillStyle(palette.frame, 0.82);
+    base.fillRoundedRect(bounds.x + bounds.width * 0.14, bounds.y + bounds.height * 0.6, bounds.width * 0.72, bounds.height * 0.06, 16);
     base.fillStyle(0x2a231d, 0.18);
     base.fillRoundedRect(hpBarX, hpBarY, hpBarWidth, 12, 6);
     base.fillStyle(palette.frame, 1);
@@ -481,17 +491,12 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * BattleScene 仍然通过实例方法读取 camp bounds，
+   * 但实际布局规则已经移到纯函数 helper，方便测试和后续继续迭代资源尺寸。
+   */
   private getCampBounds(team: TeamName) {
-    const { width, height } = this.viewport;
-    const campWidth = width * 0.28;
-    const campHeight = height * 0.42;
-    const campY = height * 0.24;
-    const sideGap = width * 0.08;
-    const x = team === "red"
-      ? sideGap
-      : width - sideGap - campWidth;
-
-    return new Phaser.Geom.Rectangle(x, campY, campWidth, campHeight);
+    return getStageCampBounds(this.viewport, team);
   }
 
   private getProjectileOrigin(team: TeamName) {
@@ -524,6 +529,19 @@ export class BattleScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * 运行时 PNG 的原图比例并不完全一致。
+   * 这里统一按“装进目标框”处理，避免在 Phaser 里把图片压扁，影响小尺寸识别性。
+   */
+  private fitSpriteIntoBox(sprite: Phaser.GameObjects.Image, maxWidth: number, maxHeight: number) {
+    const textureSource = sprite.texture.getSourceImage() as { width?: number; height?: number } | undefined;
+    const sourceWidth = textureSource?.width ?? sprite.width;
+    const sourceHeight = textureSource?.height ?? sprite.height;
+    const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight);
+
+    sprite.setDisplaySize(sourceWidth * scale, sourceHeight * scale);
+  }
+
   private addLabel(
     x: number,
     y: number,
@@ -538,6 +556,11 @@ export class BattleScene extends Phaser.Scene {
 
     this.labels.push(label);
     return label;
+  }
+
+  private clearCampSprites() {
+    this.campSprites.forEach((sprite) => sprite.destroy());
+    this.campSprites = [];
   }
 
   private clearLabels() {
