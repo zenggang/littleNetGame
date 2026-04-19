@@ -56,7 +56,33 @@
 ## Verification
 
 - `npm run test:legacy`
+- `npm run test:smoke-lib`
 - `npm run test:unit`
 - `npm run test:worker`
 - `npm run lint`
 - `npm run build`
+
+## CI/CD automation
+
+本仓库支持在 `push main` 后自动完成这条链路：
+
+1. GitHub Actions 先跑 `lint + test`
+2. 自动部署 Cloudflare coordinator worker
+3. 等待生产域名升级后，跑一轮真实在线 smoke test：
+   开房 -> 第二名玩家加入 -> 房主可开战 -> 双端进入 battle
+
+工作流文件：
+
+- [deploy-realtime-stack.yml](.github/workflows/deploy-realtime-stack.yml)
+
+需要提前在 GitHub 仓库里配置的 Actions secret / variable：
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `PRODUCTION_BASE_URL`（可选，不配时默认 `https://math.pigou.top`）
+
+注意：
+
+- workflow 只自动部署 `realtime-worker` 的代码，不会自动修改 Cloudflare 里已存在的运行时 secrets。
+- `COORDINATOR_SHARED_SECRET`、`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` 仍然需要先在 Cloudflare worker 侧配置完成。
+- Vercel 仍然依赖现有 Git integration 自动部署，workflow 的 smoke test 会等待生产域名升级后再验通，而不是重复发起一份 Vercel 部署。
