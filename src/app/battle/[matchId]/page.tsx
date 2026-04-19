@@ -9,6 +9,7 @@ import { buildBattleViewModel } from "@/components/battle-runtime/build-battle-v
 import { QuestionForm } from "@/components/game/question-form";
 import { useMatchSession } from "@/lib/game/client/use-match-session";
 import { matchStateFromSnapshot } from "@/lib/game/protocol/from-supabase-snapshot";
+import { writeCachedMatchReport } from "@/lib/game/result/local-report-cache";
 import {
   getMatchSnapshot,
   toUserMessage,
@@ -90,6 +91,23 @@ export default function BattlePage() {
       return;
     }
 
+    if (liveSnapshot.room) {
+      writeCachedMatchReport(matchId, {
+        roomCode: liveSnapshot.room.code,
+        winner: liveSnapshot.match.winner ?? "red",
+        winReason: liveSnapshot.match.winReason ?? "time_up",
+        teams: {
+          red: { hpCurrent: liveSnapshot.match.teams.red.hpCurrent },
+          blue: { hpCurrent: liveSnapshot.match.teams.blue.hpCurrent },
+        },
+        totalCorrect: liveSnapshot.match.totalCorrect,
+        durationMs:
+          Date.parse(liveSnapshot.match.endedAt ?? liveSnapshot.match.endsAt) -
+          Date.parse(liveSnapshot.match.createdAt),
+        finalEventLog: liveSnapshot.match.events,
+      });
+    }
+
     /**
      * 结算页现在不是立即跳转，而是保留一个很短的收束窗口。
      * 这样本地 Demo 和真协调层环境都能看到“这一局结束”的视觉落点。
@@ -99,7 +117,7 @@ export default function BattlePage() {
     }, BATTLE_RESULT_REDIRECT_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [liveSnapshot?.match?.endedAt, liveSnapshot?.match?.phase, matchId, router]);
+  }, [liveSnapshot, matchId, router]);
 
   useEffect(() => {
     if (controlFlash === "idle") {

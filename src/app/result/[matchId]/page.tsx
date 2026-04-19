@@ -8,6 +8,7 @@ import {
   getMatchSnapshot,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import { readCachedMatchReport } from "@/lib/game/result/local-report-cache";
 import { buildMatchReport } from "@/lib/game/result/match-report";
 import { useHydrated } from "@/lib/use-hydrated";
 import styles from "./page.module.css";
@@ -46,6 +47,17 @@ export default function ResultPage() {
       });
       setError("");
     } catch {
+      const cachedReport = readCachedMatchReport(matchId);
+
+      if (cachedReport) {
+        setReport({
+          ...buildMatchReport(cachedReport),
+          roomCode: cachedReport.roomCode,
+        });
+        setError("");
+        return;
+      }
+
       try {
         const snapshot = await getMatchSnapshot(matchId);
 

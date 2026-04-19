@@ -85,6 +85,7 @@ vi.mock("@/lib/supabase/game-store", () => ({
 
 import BattlePage from "@/app/battle/[matchId]/page";
 import { BATTLE_RESULT_REDIRECT_DELAY_MS } from "@/app/battle/[matchId]/page";
+import { readCachedMatchReport } from "@/lib/game/result/local-report-cache";
 
 function createBattleSnapshot(
   overrides: Partial<Awaited<ReturnType<typeof getMatchSnapshot>>> = {},
@@ -164,6 +165,7 @@ describe("BattlePage", () => {
     matchSessionSnapshot.current = snapshot;
     matchSessionRestart.mockResolvedValue({ ok: true, message: "房间已重置" });
     matchSessionTick.mockResolvedValue({ ok: true, message: "已同步" });
+    window.sessionStorage.clear();
   });
 
   it("uses the coordinator restart command instead of the legacy restart RPC", async () => {
@@ -223,6 +225,15 @@ describe("BattlePage", () => {
         await Promise.resolve();
       });
 
+      expect(readCachedMatchReport("match-1")).toMatchObject({
+        roomCode: "ABCD",
+        winner: "red",
+        winReason: "hp_zero",
+        teams: {
+          red: { hpCurrent: 100 },
+          blue: { hpCurrent: 92 },
+        },
+      });
       expect(screen.getByText("返回房间")).toBeInTheDocument();
       expect(push).not.toHaveBeenCalled();
       const redirectTimer = setTimeoutSpy.mock.calls.find(([, delay]) => (
