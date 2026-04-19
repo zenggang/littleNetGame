@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 // 这份用例既要被 Vitest 执行，也要被 `tsx --test` 的旧测试入口执行。
-// 同时 `src/lib/server` 是单独的 ESM 边界，动态导入可以兼容 legacy runner 对上层 TS 模块的加载形态。
+// 同时 `src/lib/server` 是单独的 ESM 边界，动态导入可以兼容 legacy runner 对上层 TS 模块的加载形态。  
 const isVitestRuntime = Boolean(process.env.VITEST);
 const supabaseEnvModule = await import("../supabase/env");
 const {
