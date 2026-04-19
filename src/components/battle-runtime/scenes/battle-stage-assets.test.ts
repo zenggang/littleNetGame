@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 
 import {
   BATTLE_STAGE_ASSET_KEYS,
@@ -9,10 +8,10 @@ import {
 
 describe("battle stage assets", () => {
   it("maps every runtime asset to a stable Phaser key", () => {
-    assert.equal(BATTLE_STAGE_ASSET_KEYS.red.base, "battle-asset-red-base");
-    assert.equal(BATTLE_STAGE_ASSET_KEYS.blue.base, "battle-asset-blue-base");
-    assert.equal(BATTLE_STAGE_ASSET_KEYS.red.turret, "battle-asset-red-turret");
-    assert.equal(BATTLE_STAGE_ASSET_KEYS.blue.turret, "battle-asset-blue-turret");
+    expect(BATTLE_STAGE_ASSET_KEYS.red.base).toBe("battle-asset-red-base");
+    expect(BATTLE_STAGE_ASSET_KEYS.blue.base).toBe("battle-asset-blue-base");
+    expect(BATTLE_STAGE_ASSET_KEYS.red.turret).toBe("battle-asset-red-turret");
+    expect(BATTLE_STAGE_ASSET_KEYS.blue.turret).toBe("battle-asset-blue-turret");
   });
 
   it("keeps red and blue camps inside the stage with mirrored placement", () => {
@@ -20,10 +19,10 @@ describe("battle stage assets", () => {
     const red = getCampBounds(viewport, "red");
     const blue = getCampBounds(viewport, "blue");
 
-    assert.ok(red.x < viewport.width * 0.5);
-    assert.ok(blue.x > viewport.width * 0.5);
-    assert.equal(red.width, blue.width);
-    assert.equal(red.height, blue.height);
+    expect(red.x).toBeLessThan(viewport.width * 0.5);
+    expect(blue.x).toBeGreaterThan(viewport.width * 0.5);
+    expect(red.width).toBe(blue.width);
+    expect(red.height).toBe(blue.height);
   });
 
   it("returns large readable base and turret boxes for a small battle viewport", () => {
@@ -31,9 +30,9 @@ describe("battle stage assets", () => {
     const red = getCampAssetLayout(viewport, "red");
     const blue = getCampAssetLayout(viewport, "blue");
 
-    assert.ok(red.base.displayWidth > 110);
-    assert.ok(red.turret.displayWidth > 70);
-    assert.ok(red.base.x < blue.base.x);
-    assert.ok(red.turret.x < blue.turret.x);
+    expect(red.base.displayWidth).toBeGreaterThan(110);
+    expect(red.turret.displayWidth).toBeGreaterThan(70);
+    expect(red.base.x).toBeLessThan(blue.base.x);
+    expect(red.turret.x).toBeLessThan(blue.turret.x);
   });
 });
