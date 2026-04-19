@@ -14,8 +14,8 @@ const STORE_EVENT = "little-net-game:demo-store-update";
 const SESSION_KEY = "little-net-game:player-session";
 
 const COUNTDOWN_MS = 3_000;
-const MATCH_DURATION_MS = 60_000;
-const QUESTION_DURATION_MS = 8_000;
+const MATCH_DURATION_MS = 5 * 60_000;
+const QUESTION_DURATION_MS = 60_000;
 const WRONG_COOLDOWN_MS = 1_000;
 const TIMEOUT_DAMAGE = 2;
 

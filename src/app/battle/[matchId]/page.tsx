@@ -113,6 +113,9 @@ export default function BattlePage() {
     ? liveMatch.cooldowns[viewer.playerId] ?? 0
     : 0;
   const isCoolingDown = cooldownUntil > now;
+  const activeQuestionExpired =
+    liveMatch?.phase === "active" &&
+    Math.ceil((Date.parse(liveMatch.questionDeadlineAt) - now) / 1000) <= 0;
   const previousMatch = previousMatchRef.current;
 
   useEffect(() => {
@@ -128,6 +131,18 @@ export default function BattlePage() {
 
     coolingDownRef.current = isCoolingDown;
   }, [isCoolingDown]);
+
+  useEffect(() => {
+    if (!activeQuestionExpired) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void loadSnapshot();
+    }, 1_500);
+
+    return () => window.clearInterval(timer);
+  }, [activeQuestionExpired, liveMatch?.currentQuestion.key, loadSnapshot]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -209,14 +224,21 @@ export default function BattlePage() {
           >
             <QuestionForm
               question={match.currentQuestion}
-              disabled={match.phase !== "active" || isCoolingDown || !viewer}
+              disabled={
+                match.phase !== "active" ||
+                isCoolingDown ||
+                !viewer ||
+                viewModel.questionCard.secondsLeft <= 0
+              }
               flash={controlFlash}
               submitLabel={viewModel.questionCard.submitLabel}
               onSubmit={async (payload) => {
                 try {
                   const result = await matchSession.submitAnswer(payload);
                   setError("");
-                  setFeedback(result.message);
+                  setFeedback(
+                    result.ok ? result.message : toUserMessage(new Error(result.message)),
+                  );
                   setControlFlash(result.ok ? "success" : "wrong");
                 } catch (nextError) {
                   setFeedback("");

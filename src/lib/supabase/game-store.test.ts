@@ -44,4 +44,11 @@ describe("supabase realtime subscription", () => {
       /COORDINATOR_BASE_URL/,
     );
   });
+
+  it("maps missing match errors to a player-facing battle recovery message", () => {
+    assert.equal(
+      toUserMessage(new Error("MATCH_NOT_FOUND")),
+      "这场对战已经结束或断开了，请返回房间重新开局。",
+    );
+  });
 });

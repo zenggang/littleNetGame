@@ -11,6 +11,10 @@ import {
 } from "../src/lib/match-engine";
 
 describe("match engine", () => {
+  it("keeps question rounds long enough for manual production playtests", () => {
+    expect(QUESTION_DURATION_MS).toBeGreaterThanOrEqual(60_000);
+  });
+
   it("opens the first question after countdown and resolves the first correct answer", () => {
     const engine = createMatchEngine({
       mode: "1v1",

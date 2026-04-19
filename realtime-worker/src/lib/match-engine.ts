@@ -6,8 +6,8 @@ import { resolveTeamCounts } from "../../../src/lib/game/config";
 import type { MatchMode, TeamCounts, TeamName } from "../../../src/lib/game/types";
 
 export const COUNTDOWN_MS = 3_000;
-export const MATCH_DURATION_MS = 60_000;
-export const QUESTION_DURATION_MS = 8_000;
+export const MATCH_DURATION_MS = 5 * 60_000;
+export const QUESTION_DURATION_MS = 60_000;
 export const WRONG_COOLDOWN_MS = 1_000;
 export const TIMEOUT_DAMAGE = 2;
 

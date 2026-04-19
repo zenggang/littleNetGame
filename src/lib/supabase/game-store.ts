@@ -114,6 +114,8 @@ export function toUserMessage(error: unknown) {
       return "当前人数和分队还不能开局。";
     case "MODE_NOT_SUPPORTED":
       return "当前分队不在支持模式里。";
+    case "MATCH_NOT_FOUND":
+      return "这场对战已经结束或断开了，请返回房间重新开局。";
     case "AUTH_REQUIRED":
       return "当前还没登录到 Supabase。";
     case "COORDINATOR_NOT_READY":

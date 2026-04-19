@@ -23,6 +23,25 @@ export function QuestionForm({
   flash,
   onSubmit,
 }: QuestionFormProps) {
+  return (
+    <QuestionFormFields
+      key={question.key}
+      disabled={disabled}
+      flash={flash}
+      onSubmit={onSubmit}
+      question={question}
+      submitLabel={submitLabel}
+    />
+  );
+}
+
+function QuestionFormFields({
+  question,
+  disabled,
+  submitLabel,
+  flash,
+  onSubmit,
+}: Required<QuestionFormProps>) {
   const [singleValue, setSingleValue] = useState("");
   const [quotient, setQuotient] = useState("");
   const [remainder, setRemainder] = useState("");

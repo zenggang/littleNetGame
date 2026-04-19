@@ -57,6 +57,65 @@ async function flushAsyncWork() {
   });
 }
 
+function createActiveCoordinatorSnapshot() {
+  return {
+    room: {
+      id: "room-1",
+      code: "ABCD",
+      gradeLabel: "小学二年级",
+      capacity: 2,
+      hostPlayerId: "player-1",
+      status: "locked",
+      activeMatchId: "match-1",
+      createdAt: "2026-04-16T10:00:00.000Z",
+    },
+    members: [],
+    viewer: {
+      playerId: "player-1",
+      nickname: "阿杰",
+      team: "red",
+      joinedAt: "2026-04-16T10:00:00.000Z",
+    },
+    session: {
+      playerId: "player-1",
+      nickname: "阿杰",
+    },
+    match: {
+      id: "match-1",
+      roomCode: "ABCD",
+      mode: "1v1",
+      phase: "active",
+      teams: {
+        red: { name: "red", hpMax: 100, hpCurrent: 100, damageMultiplier: 1 },
+        blue: { name: "blue", hpMax: 100, hpCurrent: 92, damageMultiplier: 1 },
+      },
+      totalCorrect: { red: 1, blue: 0 },
+      currentQuestion: {
+        key: "q-1",
+        difficulty: 2,
+        type: "addition",
+        prompt: "27 + 15 = ?",
+        answerKind: "single-number",
+        damage: 8,
+        correctAnswer: { value: 42 },
+        meta: {},
+      },
+      questionIndex: 2,
+      questionDeadlineAt: "2099-04-16T10:00:08.000Z",
+      countdownEndsAt: "2026-04-16T10:00:03.000Z",
+      endsAt: "2099-04-16T10:01:03.000Z",
+      recentPrompts: ["27 + 15 = ?"],
+      winner: null,
+      winReason: null,
+      lastHitTeam: "red",
+      cooldowns: {},
+      events: [],
+      createdAt: "2026-04-16T10:00:00.000Z",
+      endedAt: null,
+    },
+  };
+}
+
 describe("useMatchSession", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -90,6 +149,50 @@ describe("useMatchSession", () => {
       playerId: "player-1",
       nickname: "阿杰",
     });
+  });
+
+  it("clears stale match state when the room snapshot no longer has an active match", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: createActiveCoordinatorSnapshot(),
+      });
+    });
+
+    expect(result.current.snapshot?.match?.id).toBe("match-1");
+
+    act(() => {
+      const current = createActiveCoordinatorSnapshot();
+      socket.emitMessage({
+        type: "room.snapshot",
+        payload: {
+          ...current,
+          room: {
+            ...current.room,
+            status: "open",
+            activeMatchId: null,
+          },
+          match: null,
+        },
+      });
+    });
+
+    expect(result.current.snapshot?.match).toBeNull();
   });
 
   it("reconnects after socket close and refreshes the latest match snapshot", async () => {

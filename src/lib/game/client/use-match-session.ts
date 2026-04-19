@@ -135,6 +135,7 @@ export function useMatchSession(input: {
             ...current,
             room: message.payload.room,
             members: message.payload.members,
+            match: message.payload.match,
             viewer: message.payload.viewer,
             session: message.payload.session,
           };

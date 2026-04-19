@@ -57,7 +57,11 @@ vi.mock("@/components/battle-runtime/BattleHud", () => ({
 }));
 
 vi.mock("@/components/game/question-form", () => ({
-  QuestionForm: () => <div>question-form</div>,
+  QuestionForm: ({ disabled }: { disabled: boolean }) => (
+    <button disabled={disabled} type="button">
+      question-form-submit
+    </button>
+  ),
 }));
 
 vi.mock("@/lib/game/client/use-match-session", () => ({
@@ -228,6 +232,45 @@ describe("BattlePage", () => {
       setTimeoutSpy?.mockRestore();
       requestAnimationFrameSpy?.mockRestore();
       cancelAnimationFrameSpy?.mockRestore();
+    }
+  });
+
+  it("disables answer submission after the visible question timer reaches zero", async () => {
+    const snapshot = createBattleSnapshot({
+      match: {
+        ...createBattleSnapshot().match,
+        questionDeadlineAt: "2020-04-16T10:00:08.000Z",
+      },
+    });
+    getMatchSnapshot.mockResolvedValue(snapshot);
+    matchSessionSnapshot.current = snapshot;
+
+    render(<BattlePage />);
+
+    expect(await screen.findByRole("button", { name: "question-form-submit" })).toBeDisabled();
+  });
+
+  it("polls the latest snapshot while an active question is visibly expired", async () => {
+    let setIntervalSpy: ReturnType<typeof vi.spyOn> | null = null;
+
+    try {
+      const snapshot = createBattleSnapshot({
+        match: {
+          ...createBattleSnapshot().match,
+          questionDeadlineAt: "2020-04-16T10:00:08.000Z",
+        },
+      });
+      getMatchSnapshot.mockResolvedValue(snapshot);
+      matchSessionSnapshot.current = snapshot;
+      setIntervalSpy = vi.spyOn(window, "setInterval");
+
+      render(<BattlePage />);
+
+      await screen.findByRole("button", { name: "question-form-submit" });
+
+      expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
+    } finally {
+      setIntervalSpy?.mockRestore();
     }
   });
 });
