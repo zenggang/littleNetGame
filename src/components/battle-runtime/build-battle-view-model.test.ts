@@ -64,6 +64,20 @@ describe("buildBattleViewModel", () => {
     expect(viewModel.footerMessage).toBe("保持专注，抢在别人前面答出来。");
   });
 
+  it("surfaces the viewer team label", () => {
+    const viewModel = buildBattleViewModel({
+      match: createMatch(),
+      previousMatch: null,
+      viewerTeam: "blue",
+      now: Date.parse("2026-04-16T10:00:04.000Z"),
+      isCoolingDown: false,
+      feedback: "",
+      error: "",
+    });
+
+    expect(viewModel.viewerTeamLabel).toBe("你是蓝队");
+  });
+
   it("builds a hit cue when one side loses hp after a correct answer", () => {
     const previousMatch = createMatch({
       currentQuestion: {
@@ -122,6 +136,85 @@ describe("buildBattleViewModel", () => {
     });
     expect(viewModel.stageBannerLabel).toBe("红队命中");
   });
+
+  it("builds a blue-to-red hit cue from the latest correct-answer event", () => {
+    const previousMatch = createMatch({
+      currentQuestion: {
+        key: "q-2",
+        difficulty: 2,
+        type: "addition",
+        prompt: "31 + 11 = ?",
+        answerKind: "single-number",
+        damage: 8,
+        correctAnswer: { value: 42 },
+        meta: {},
+      },
+      questionIndex: 3,
+      teams: {
+        red: { name: "red", hpCurrent: 100, hpMax: 100, damageMultiplier: 1 },
+        blue: { name: "blue", hpCurrent: 80, hpMax: 100, damageMultiplier: 1 },
+      },
+      lastHitTeam: "red",
+    });
+
+    const match = createMatch({
+      currentQuestion: {
+        key: "q-3",
+        difficulty: 2,
+        type: "addition",
+        prompt: "19 + 8 = ?",
+        answerKind: "single-number",
+        damage: 9,
+        correctAnswer: { value: 27 },
+        meta: {},
+      },
+      questionIndex: 4,
+      teams: {
+        red: { name: "red", hpCurrent: 92, hpMax: 100, damageMultiplier: 1 },
+        blue: { name: "blue", hpCurrent: 80, hpMax: 100, damageMultiplier: 1 },
+      },
+      lastHitTeam: "red",
+      events: [
+        {
+          id: "hp-1",
+          type: "hp_changed",
+          text: "红队 92 / 蓝队 80",
+          team: "blue",
+          targetTeam: "red",
+          damage: 8,
+          createdAt: "2026-04-16T10:00:04.000Z",
+        },
+        {
+          id: "hit-1",
+          type: "answer_correct",
+          text: "小蓝抢先答对了，蓝队发起进攻！",
+          team: "blue",
+          targetTeam: "red",
+          damage: 8,
+          createdAt: "2026-04-16T10:00:04.000Z",
+        },
+      ],
+    });
+
+    const viewModel = buildBattleViewModel({
+      match,
+      previousMatch,
+      viewerTeam: "blue",
+      now: Date.parse("2026-04-16T10:00:04.000Z"),
+      isCoolingDown: false,
+      feedback: "",
+      error: "",
+    });
+
+    expect(viewModel.stageCue).toEqual({
+      id: "hit:q-3:blue:red:8:hit-1",
+      kind: "hit",
+      attackerTeam: "blue",
+      targetTeam: "red",
+      damage: 8,
+    });
+  });
+
 
   it("builds a timeout cue when both camps lose hp on question rollover", () => {
     const previousMatch = createMatch({

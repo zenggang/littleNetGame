@@ -108,6 +108,8 @@ export class MatchRoom extends DurableObject<Env> {
       return new Response("Room not found", { status: 404 });
     }
 
+    await this.syncMatchClock();
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair) as [DurableWebSocket, DurableWebSocket];
 
@@ -229,6 +231,12 @@ export class MatchRoom extends DurableObject<Env> {
       if (command.type === "room.restart") {
         await this.handleRestartRoom();
         this.sendCommandResult(ws, command.commandId, true, "房间已重置");
+        return;
+      }
+
+      if (command.type === "match.tick") {
+        await this.handleTickMatch();
+        this.sendCommandResult(ws, command.commandId, true, "已同步");
         return;
       }
 
@@ -436,6 +444,15 @@ export class MatchRoom extends DurableObject<Env> {
     return result.result;
   }
 
+  private async handleTickMatch() {
+    if (!this.matchState) {
+      throw new Error("MATCH_NOT_FOUND");
+    }
+
+    await this.syncMatchClock();
+    this.broadcastSnapshots();
+  }
+
   private async ensureRoomLoaded(roomCode: string, playerId?: string) {
     if (
       this.roomState?.room.code === roomCode &&
@@ -610,6 +627,16 @@ export class MatchRoom extends DurableObject<Env> {
         shouldContinue = false;
       }
     }
+  }
+
+  private async syncMatchClock() {
+    if (!this.matchState) {
+      return;
+    }
+
+    await this.driveMatchForward();
+    await this.persistCheckpoint();
+    await this.scheduleNextAlarm();
   }
 
   private async finalizeFinishedMatch() {

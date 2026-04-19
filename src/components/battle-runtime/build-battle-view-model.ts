@@ -47,6 +47,7 @@ export type BattleViewModel = {
   topBarLabel: string;
   topBarTimerLabel: string;
   topBarPhaseLabel: string;
+  viewerTeamLabel: string;
   redHpLabel: string;
   blueHpLabel: string;
   footerMessage: string;
@@ -145,6 +146,7 @@ export function buildBattleViewModel(
       ? "已结束"
       : `总 ${totalSecondsLeft} 秒`,
     topBarPhaseLabel: buildTopBarPhaseLabel(match.phase, isCoolingDown, controlTone),
+    viewerTeamLabel: buildViewerTeamLabel(viewerTeam),
     redHpLabel: `${match.teams.red.hpCurrent} / ${match.teams.red.hpMax}`,
     blueHpLabel: `${match.teams.blue.hpCurrent} / ${match.teams.blue.hpMax}`,
     footerMessage: buildFooterMessage({
@@ -455,11 +457,19 @@ function buildStageCue(
 
   if (redDamage > 0 || blueDamage > 0) {
     const targetTeam = redDamage > 0 ? "red" : "blue";
-    const attackerTeam = match.lastHitTeam ?? oppositeTeam(targetTeam);
     const damage = targetTeam === "red" ? redDamage : blueDamage;
+    const correctAnswerEvent = match.events.find((event) =>
+      event.type === "answer_correct" &&
+      event.team &&
+      event.targetTeam === targetTeam &&
+      typeof event.damage === "number"
+    );
+    const attackerTeam = correctAnswerEvent?.team ?? match.lastHitTeam ?? oppositeTeam(targetTeam);
 
     return {
-      id: `hit:${match.currentQuestion.key}:${attackerTeam}:${targetTeam}:${damage}`,
+      id: correctAnswerEvent
+        ? `hit:${match.currentQuestion.key}:${attackerTeam}:${targetTeam}:${damage}:${correctAnswerEvent.id}`
+        : `hit:${match.currentQuestion.key}:${attackerTeam}:${targetTeam}:${damage}`,
       kind: "hit",
       attackerTeam,
       targetTeam,
@@ -476,6 +486,18 @@ function buildStageCue(
   }
 
   return null;
+}
+
+function buildViewerTeamLabel(viewerTeam: TeamName | null) {
+  if (viewerTeam === "red") {
+    return "你是红队";
+  }
+
+  if (viewerTeam === "blue") {
+    return "你是蓝队";
+  }
+
+  return "观战中";
 }
 
 function buildTotalSecondsLeft(match: BattleMatch, now: number) {

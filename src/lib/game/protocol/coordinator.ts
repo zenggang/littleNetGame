@@ -56,6 +56,10 @@ export type CoordinatorCommand =
           remainder?: string;
         };
       };
+    }
+  | {
+      type: "match.tick";
+      commandId: string;
     };
 
 export type CoordinatorMessage =

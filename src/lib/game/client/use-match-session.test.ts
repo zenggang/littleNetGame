@@ -195,6 +195,33 @@ describe("useMatchSession", () => {
     expect(result.current.snapshot?.match).toBeNull();
   });
 
+  it("sends a match tick command through the coordinator socket", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+    });
+
+    void result.current.tickMatch().catch(() => undefined);
+
+    expect(socket.send).toHaveBeenCalledWith(
+      expect.stringContaining("\"type\":\"match.tick\""),
+    );
+  });
+
+
   it("reconnects after socket close and refreshes the latest match snapshot", async () => {
     const firstSocket = new FakeSocket();
     const secondSocket = new FakeSocket();

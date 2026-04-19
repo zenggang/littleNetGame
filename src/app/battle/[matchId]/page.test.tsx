@@ -9,6 +9,7 @@ const {
   submitAnswer,
   matchSessionRestart,
   matchSessionSubmit,
+  matchSessionTick,
   matchSessionSnapshot,
   stagePropsSpy,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   submitAnswer: vi.fn(),
   matchSessionRestart: vi.fn(),
   matchSessionSubmit: vi.fn(),
+  matchSessionTick: vi.fn(),
   matchSessionSnapshot: { current: null as Record<string, unknown> | null },
   stagePropsSpy: vi.fn(),
 }));
@@ -70,6 +72,7 @@ vi.mock("@/lib/game/client/use-match-session", () => ({
     snapshot: matchSessionSnapshot.current,
     submitAnswer: matchSessionSubmit,
     restartRoom: matchSessionRestart,
+    tickMatch: matchSessionTick,
   }),
 }));
 
@@ -153,12 +156,14 @@ describe("BattlePage", () => {
     submitAnswer.mockReset();
     matchSessionRestart.mockReset();
     matchSessionSubmit.mockReset();
+    matchSessionTick.mockReset();
     stagePropsSpy.mockReset();
 
     const snapshot = createBattleSnapshot();
     getMatchSnapshot.mockResolvedValue(snapshot);
     matchSessionSnapshot.current = snapshot;
     matchSessionRestart.mockResolvedValue({ ok: true, message: "房间已重置" });
+    matchSessionTick.mockResolvedValue({ ok: true, message: "已同步" });
   });
 
   it("uses the coordinator restart command instead of the legacy restart RPC", async () => {
@@ -175,6 +180,14 @@ describe("BattlePage", () => {
       expect(restartRoom).not.toHaveBeenCalled();
     });
   });
+
+  it("marks the viewer's own team in the battle header", async () => {
+    render(<BattlePage />);
+
+    expect(await screen.findByText(/你是红队/)).toBeInTheDocument();
+    expect(screen.getByText("红队（你）")).toBeInTheDocument();
+  });
+
 
   it("holds the finishing scene briefly before navigating to the result page", async () => {
     let requestAnimationFrameSpy: ReturnType<typeof vi.spyOn> | null = null;
@@ -285,6 +298,15 @@ describe("BattlePage", () => {
       await screen.findByRole("button", { name: "question-form-submit" });
 
       expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
+      const tickCallback = setIntervalSpy.mock.calls.find(([, delay]) => delay === 1_500)?.[0];
+
+      await act(async () => {
+        if (typeof tickCallback === "function") {
+          tickCallback();
+        }
+      });
+
+      expect(matchSessionTick).toHaveBeenCalled();
     } finally {
       setIntervalSpy?.mockRestore();
     }
@@ -310,6 +332,15 @@ describe("BattlePage", () => {
       await screen.findByRole("button", { name: "question-form-submit" });
 
       expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
+      const tickCallback = setIntervalSpy.mock.calls.find(([, delay]) => delay === 1_500)?.[0];
+
+      await act(async () => {
+        if (typeof tickCallback === "function") {
+          tickCallback();
+        }
+      });
+
+      expect(matchSessionTick).toHaveBeenCalled();
     } finally {
       setIntervalSpy?.mockRestore();
     }

@@ -34,6 +34,9 @@ export default function BattlePage() {
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getMatchSnapshot>> | null>(null);
   const previousMatchRef = useRef<CoordinatorMatchSnapshot["match"] | null>(null);
   const coolingDownRef = useRef(false);
+  const tickMatchRef = useRef<() => Promise<{ ok: boolean; message: string }>>(
+    async () => ({ ok: false, message: "对局未连接" }),
+  );
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -77,6 +80,10 @@ export default function BattlePage() {
       : null,
   });
   const liveSnapshot = matchSession.snapshot ?? snapshot;
+
+  useEffect(() => {
+    tickMatchRef.current = matchSession.tickMatch;
+  }, [matchSession.tickMatch]);
 
   useEffect(() => {
     if (liveSnapshot?.match?.phase !== "finished") {
@@ -141,6 +148,7 @@ export default function BattlePage() {
     }
 
     const timer = window.setInterval(() => {
+      void tickMatchRef.current().catch(() => undefined);
       void loadSnapshot();
     }, 1_500);
 
@@ -193,16 +201,24 @@ export default function BattlePage() {
       <section className={styles.shell} data-tone={viewModel.controlTone}>
         <header className={styles.topBar} data-tone={viewModel.controlTone}>
           <div className={styles.topBarCopy}>
-            <p className={styles.kicker}>{match.mode} · 全房同题</p>
+            <p className={styles.kicker}>
+              {match.mode} · {viewModel.viewerTeamLabel} · 全房同题
+            </p>
             <strong>{viewModel.topBarPhaseLabel}</strong>
           </div>
           <div className={styles.scoreStrip}>
-            <span className={`${styles.teamPill} ${styles.teamPillRed}`}>
-              <span>红队</span>
+            <span
+              className={`${styles.teamPill} ${styles.teamPillRed}`}
+              data-current={viewer?.team === "red"}
+            >
+              <span>{viewer?.team === "red" ? "红队（你）" : "红队"}</span>
               <strong>{viewModel.redHpLabel}</strong>
             </span>
-            <span className={`${styles.teamPill} ${styles.teamPillBlue}`}>
-              <span>蓝队</span>
+            <span
+              className={`${styles.teamPill} ${styles.teamPillBlue}`}
+              data-current={viewer?.team === "blue"}
+            >
+              <span>{viewer?.team === "blue" ? "蓝队（你）" : "蓝队"}</span>
               <strong>{viewModel.blueHpLabel}</strong>
             </span>
           </div>

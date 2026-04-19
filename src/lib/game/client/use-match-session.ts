@@ -231,7 +231,8 @@ export function useMatchSession(input: {
   const sendCommand = (
     command:
       | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
-      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">,
+      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "match.tick" }>, "commandId">,
   ) =>
     new Promise<CommandResult>((resolve, reject) => {
       const socket = socketRef.current;
@@ -249,7 +250,8 @@ export function useMatchSession(input: {
   const sendLocalCommand = async (
     command:
       | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
-      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">,
+      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "match.tick" }>, "commandId">,
   ): Promise<CommandResult> => {
     const matchId = snapshot?.match?.id;
 
@@ -261,6 +263,16 @@ export function useMatchSession(input: {
       await restartDemoRoom(roomCode);
       setSnapshot((await getMatchSnapshot(matchId ?? "")) as CoordinatorMatchSnapshot);
       return { ok: true, message: "房间已重置" };
+    }
+
+    if (command.type === "match.tick") {
+      if (!matchId) {
+        throw new Error("MATCH_NOT_FOUND");
+      }
+
+      await tickDemoMatch(matchId);
+      setSnapshot((await getMatchSnapshot(matchId)) as CoordinatorMatchSnapshot);
+      return { ok: true, message: "已同步" };
     }
 
     if (!matchId) {
@@ -300,6 +312,14 @@ export function useMatchSession(input: {
           })
         : sendCommand({
             type: "room.restart",
+          }),
+    tickMatch: () =>
+      useLocalDemoMode
+        ? sendLocalCommand({
+            type: "match.tick",
+          })
+        : sendCommand({
+            type: "match.tick",
           }),
   };
 }

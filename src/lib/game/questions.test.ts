@@ -65,4 +65,28 @@ describe("question generation", () => {
       false,
     );
   });
+
+  it("accepts full-width numeric answers from mobile input methods", () => {
+    assert.equal(
+      isAnswerCorrect(
+        {
+          answerKind: "single-number",
+          correctAnswer: { value: 42 },
+        },
+        { value: "４２" },
+      ),
+      true,
+    );
+
+    assert.equal(
+      isAnswerCorrect(
+        {
+          answerKind: "quotient-remainder",
+          correctAnswer: { quotient: 3, remainder: 2 },
+        },
+        { quotient: "３", remainder: "２" },
+      ),
+      true,
+    );
+  });
 });

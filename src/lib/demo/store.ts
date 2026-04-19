@@ -1,6 +1,6 @@
 import { canStartMatch, detectMatchMode, resolveTeamCounts } from "@/lib/game/config";
 import { applyQuestionOutcome, applyTeamPenalty, createInitialTeams } from "@/lib/game/match";
-import { generateQuestion } from "@/lib/game/questions";
+import { generateQuestion, isAnswerCorrect } from "@/lib/game/questions";
 import type {
   MatchMode,
   MathQuestion,
@@ -429,7 +429,7 @@ export function submitAnswer(
       return;
     }
 
-    const isCorrect = isPayloadCorrect(match.currentQuestion, payload);
+    const isCorrect = isAnswerCorrect(match.currentQuestion, payload);
 
     if (!isCorrect) {
       const wrongAnswerDamage = resolveWrongAnswerDamage(match.currentQuestion.damage);
@@ -630,24 +630,6 @@ function pickWinnerOnTime(match: DemoMatch): TeamName {
   }
 
   return match.lastHitTeam ?? "red";
-}
-
-function isPayloadCorrect(question: MathQuestion, payload: Record<string, string>) {
-  if (question.answerKind === "single-number" && "value" in question.correctAnswer) {
-    return Number.parseInt(payload.value ?? "", 10) === question.correctAnswer.value;
-  }
-
-  if (
-    question.answerKind === "quotient-remainder" &&
-    "quotient" in question.correctAnswer
-  ) {
-    return (
-      Number.parseInt(payload.quotient ?? "", 10) === question.correctAnswer.quotient &&
-      Number.parseInt(payload.remainder ?? "", 10) === question.correctAnswer.remainder
-    );
-  }
-
-  return false;
 }
 
 function createEvent(

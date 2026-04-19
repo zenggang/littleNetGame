@@ -215,6 +215,14 @@ function toNumber(value: string | number | undefined): number | null {
     return null;
   }
 
-  const parsed = Number.parseInt(value, 10);
+  const normalized = normalizeNumericText(value);
+  const parsed = Number.parseInt(normalized, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function normalizeNumericText(value: string): string {
+  // 移动端输入法可能提交全角数字。先归一化再判题，避免视觉上正确的答案被误判。
+  return value.trim().replace(/[０-９]/g, (char) =>
+    String(char.charCodeAt(0) - "０".charCodeAt(0)),
+  );
 }
