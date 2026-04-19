@@ -212,7 +212,6 @@ export async function persistMatchStart(
       room_id: input.roomId,
       mode: input.match.mode,
       phase: input.match.phase,
-      current_question_id: input.match.currentQuestion.key,
       started_at: input.match.createdAt,
       ends_at: input.match.endsAt,
       last_hit_team: input.match.lastHitTeam,

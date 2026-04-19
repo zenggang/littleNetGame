@@ -116,6 +116,10 @@ export function toUserMessage(error: unknown) {
       return "当前分队不在支持模式里。";
     case "AUTH_REQUIRED":
       return "当前还没登录到 Supabase。";
+    case "COORDINATOR_NOT_READY":
+      return "线上协调层还没配置完成。请在 Vercel 生产环境补齐 COORDINATOR_BASE_URL 和 COORDINATOR_SHARED_SECRET，并重新部署。";
+    case "COORDINATOR_CONNECT_BOOTSTRAP_FAILED":
+      return "协调层启动信息获取失败。请检查线上 coordinator ticket 接口和部署配置。";
     case "MATCH_FORBIDDEN":
     case "ROOM_FORBIDDEN":
       return "你没有权限查看这场对局。";

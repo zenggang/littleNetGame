@@ -226,7 +226,7 @@ describe("useRoomSession", () => {
     expect(result.current.snapshot?.viewer?.nickname).toBe("阿杰");
   });
 
-  it("adopts a fresher parent snapshot when realtime misses a room member update", async () => {
+  it("adopts fresher room members without prematurely enabling canStart", async () => {
     const socket = new FakeSocket();
 
     openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
@@ -308,6 +308,27 @@ describe("useRoomSession", () => {
     await flushAsyncWork();
     expect(result.current.snapshot?.members).toHaveLength(2);
     expect(result.current.snapshot?.members[1]?.nickname).toBe("小蓝");
-    expect(result.current.snapshot?.canStart).toBe(true);
+    expect(result.current.snapshot?.canStart).toBe(false);
+  });
+
+  it("surfaces the coordinator bootstrap error when the room socket never connects", async () => {
+    openCoordinatorSocket.mockRejectedValue(
+      new Error("COORDINATOR_NOT_READY"),
+    );
+
+    const { result } = renderHook(() =>
+      useRoomSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    expect(result.current.connected).toBe(false);
+    await expect(result.current.startMatch()).rejects.toThrow(
+      "COORDINATOR_NOT_READY",
+    );
   });
 });

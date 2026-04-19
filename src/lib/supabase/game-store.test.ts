@@ -37,4 +37,11 @@ describe("supabase realtime subscription", () => {
       /复制 \.env\.example 到 \.env\.local/,
     );
   });
+
+  it("returns a deployment hint when coordinator env is missing online", () => {
+    assert.match(
+      toUserMessage(new Error("COORDINATOR_NOT_READY")),
+      /COORDINATOR_BASE_URL/,
+    );
+  });
 });

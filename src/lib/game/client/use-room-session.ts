@@ -57,6 +57,7 @@ export function useRoomSession(input: {
   }) {
   const { initialSnapshot = null, nickname, playerId, roomCode } = input;
   const [connected, setConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
   const [snapshot, setSnapshot] = useState<CoordinatorRoomSnapshot | null>(initialSnapshot);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -78,11 +79,13 @@ export function useRoomSession(input: {
 
         if (disposed || !nextSnapshot.session) {
           setConnected(true);
+          setConnectionError("");
           setSnapshot((nextSnapshot as CoordinatorRoomSnapshot | null));
           return;
         }
 
         setConnected(true);
+        setConnectionError("");
         setSnapshot(nextSnapshot as CoordinatorRoomSnapshot);
       };
 
@@ -148,21 +151,42 @@ export function useRoomSession(input: {
     };
 
     const connect = async () => {
-      const socket = await openRoomSocket({ roomCode, playerId, nickname });
+      try {
+        const socket = await openRoomSocket({ roomCode, playerId, nickname });
 
-      if (disposed) {
-        socket.close();
-        return;
-      }
+        if (disposed) {
+          socket.close();
+          return;
+        }
 
-      socketRef.current = socket;
-      socket.addEventListener("open", () => setConnected(true), { once: true });
-      socket.addEventListener("message", handleMessage);
-      socket.addEventListener("close", () => {
+        socketRef.current = socket;
+        setConnectionError("");
+        socket.addEventListener("open", () => {
+          setConnected(true);
+          setConnectionError("");
+        }, { once: true });
+        socket.addEventListener("message", handleMessage);
+        socket.addEventListener("close", () => {
+          setConnected(false);
+          rejectPending("协调层连接已断开");
+          scheduleReconnect();
+        }, { once: true });
+      } catch (error) {
+        if (disposed) {
+          return;
+        }
+
+        socketRef.current = null;
         setConnected(false);
-        rejectPending("协调层连接已断开");
-        scheduleReconnect();
-      }, { once: true });
+        const message = error instanceof Error
+          ? error.message
+          : "COORDINATOR_CONNECT_BOOTSTRAP_FAILED";
+        setConnectionError(message);
+
+        if (message !== "COORDINATOR_NOT_READY") {
+          scheduleReconnect();
+        }
+      }
     };
 
     void connect();
@@ -187,7 +211,7 @@ export function useRoomSession(input: {
       const socket = socketRef.current;
 
       if (!socket || socket.readyState !== WebSocket.OPEN) {
-        reject(new Error("协调层未连接"));
+        reject(new Error(connectionError || "协调层未连接"));
         return;
       }
 
@@ -222,6 +246,7 @@ export function useRoomSession(input: {
 
   return {
     connected,
+    connectionError,
     snapshot: resolvedSnapshot,
     joinRoom: (nextNickname: string) =>
       useLocalDemoMode
@@ -272,19 +297,22 @@ function resolvePreferredRoomSnapshot(
    *
    * 这里不盲目用 fetched 覆盖 live，而是只在它明显更“向前推进”时才接管：
    * - 成员数变多
-   * - canStart 从 false 变 true
    * - 已经拿到 activeMatchId
+   *
+   * 但 `canStart` 不能只靠 fetched 提前抬高。
+   * 原因是开局动作最终仍由 coordinator 的权威房间态判定，
+   * 如果这里只因为数据库快照“看起来凑齐了两边人数”就展示成可开战，
+   * 页面会出现“按钮亮了，但点下去后端仍然返回 CANNOT_START”的错觉。
    */
   if (fetchedSnapshot.room?.activeMatchId && !liveSnapshot.room?.activeMatchId) {
     return fetchedSnapshot;
   }
 
   if (fetchedSnapshot.members.length > liveSnapshot.members.length) {
-    return fetchedSnapshot;
-  }
-
-  if (fetchedSnapshot.canStart && !liveSnapshot.canStart) {
-    return fetchedSnapshot;
+    return {
+      ...fetchedSnapshot,
+      canStart: liveSnapshot.canStart,
+    };
   }
 
   return liveSnapshot;
