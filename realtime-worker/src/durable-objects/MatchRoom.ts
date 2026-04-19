@@ -22,6 +22,7 @@ import {
   createRoomEngineState,
   type RoomEngineState,
 } from "../lib/room-engine";
+import { shouldRefreshRoomMembership } from "../lib/room-sync";
 import {
   loadCoordinatorState,
   markMatchActive,
@@ -101,7 +102,7 @@ export class MatchRoom extends DurableObject<Env> {
       return new Response("Ticket room mismatch", { status: 403 });
     }
 
-    await this.ensureRoomLoaded(roomCode);
+    await this.ensureRoomLoaded(roomCode, session.playerId);
 
     if (!this.roomState?.room) {
       return new Response("Room not found", { status: 404 });
@@ -122,23 +123,7 @@ export class MatchRoom extends DurableObject<Env> {
       roomCode,
     });
 
-    this.send(server, {
-      type: "room.snapshot",
-      payload: this.buildRoomSnapshot({
-        playerId: session.playerId,
-        nickname: session.nickname,
-      }),
-    });
-
-    if (this.matchState) {
-      this.send(server, {
-        type: "match.snapshot",
-        payload: this.buildMatchSnapshot({
-          playerId: session.playerId,
-          nickname: session.nickname,
-        }),
-      });
-    }
+    this.broadcastSnapshots();
 
     return new Response(null, {
       status: 101,
@@ -451,8 +436,11 @@ export class MatchRoom extends DurableObject<Env> {
     return result.result;
   }
 
-  private async ensureRoomLoaded(roomCode: string) {
-    if (this.roomState?.room.code === roomCode) {
+  private async ensureRoomLoaded(roomCode: string, playerId?: string) {
+    if (
+      this.roomState?.room.code === roomCode &&
+      !shouldRefreshRoomMembership(this.roomState, roomCode, playerId ?? "")
+    ) {
       return;
     }
 
