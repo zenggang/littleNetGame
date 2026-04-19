@@ -147,7 +147,7 @@ export class MatchRoom extends DurableObject<Env> {
       return;
     }
 
-    await this.ensureRoomLoaded(session.roomCode);
+    await this.ensureRoomLoaded(session.roomCode, session.playerId);
 
     let command: CoordinatorCommand;
 

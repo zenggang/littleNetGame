@@ -146,4 +146,51 @@ describe("match engine", () => {
     expect(finished.state.phase).toBe("finished");
     expect(finished.state.winReason).toBe("time_up");
   });
+
+  it("keeps cumulative hp changes across multiple question resolutions", () => {
+    const startedAt = Date.parse("2026-04-16T10:00:00.000Z");
+    const engine = createMatchEngine({
+      mode: "1v1",
+      roomCode: "ABCD",
+      players: [
+        { playerId: "red-1", team: "red" },
+        { playerId: "blue-1", team: "blue" },
+      ],
+      now: startedAt,
+      random: createSequenceRandom([0.3, 0.1, 0.2126, 0.0795]),
+    });
+
+    const activated = tickMatch(
+      engine,
+      startedAt + COUNTDOWN_MS,
+      createSequenceRandom([0.2, 0.4, 0.5, 0.7]),
+    );
+
+    const firstCorrect = submitAnswer(activated.state, {
+      playerId: "red-1",
+      answer: { value: "42" },
+      now: startedAt + COUNTDOWN_MS + 1_000,
+      random: createSequenceRandom([0.1, 0.3, 0.6, 0.2]),
+    });
+
+    const timedOut = tickMatch(
+      firstCorrect.state,
+      Date.parse(firstCorrect.state.questionDeadlineAt),
+      createSequenceRandom([0.15, 0.25, 0.35, 0.45]),
+    );
+
+    const wrong = submitAnswer(timedOut.state, {
+      playerId: "red-1",
+      answer: { value: "0" },
+      now: Date.parse(timedOut.state.countdownEndsAt) + 20_000,
+      random: createSequenceRandom([0.1, 0.3, 0.6, 0.2]),
+    });
+
+    expect(firstCorrect.state.teams.red.hpCurrent).toBe(100);
+    expect(firstCorrect.state.teams.blue.hpCurrent).toBe(92);
+    expect(timedOut.state.teams.red.hpCurrent).toBe(98);
+    expect(timedOut.state.teams.blue.hpCurrent).toBe(90);
+    expect(wrong.state.teams.red.hpCurrent).toBe(95);
+    expect(wrong.state.teams.blue.hpCurrent).toBe(90);
+  });
 });

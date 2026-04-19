@@ -304,7 +304,19 @@ export async function persistMatchFinish(
     activeMatchId: null,
   });
 
-  await insertMatchReport(env, input);
+  /**
+   * `match_reports` 只承载战报与历史查询，不应该反向阻塞实时对局收口。
+   * 线上环境若漏跑这张表的 migration，主流程仍然必须先结束比赛、解锁房间；
+   * 战报缺失只记告警，后续再补库或补数据。
+   */
+  try {
+    await insertMatchReport(env, input);
+  } catch (error) {
+    console.warn(
+      "Failed to persist match report; gameplay finish path will continue without it.",
+      error,
+    );
+  }
 }
 
 export async function insertMatchReport(

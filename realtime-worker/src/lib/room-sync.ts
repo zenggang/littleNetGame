@@ -17,5 +17,9 @@ export function shouldRefreshRoomMembership(
     return false;
   }
 
+  if (!playerId) {
+    return false;
+  }
+
   return !roomState.members.some((member) => member.playerId === playerId);
 }

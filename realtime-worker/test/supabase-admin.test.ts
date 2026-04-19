@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSequenceRandom } from "../../src/lib/game/questions";
 import { createMatchEngine } from "../src/lib/match-engine";
-import { persistMatchStart } from "../src/lib/supabase-admin";
+import { persistMatchFinish, persistMatchStart } from "../src/lib/supabase-admin";
 
 describe("persistMatchStart", () => {
   beforeEach(() => {
@@ -81,5 +81,64 @@ describe("persistMatchStart", () => {
     const roomPatchCall = fetchMock.mock.calls[4];
     const roomPatchUrl = String(roomPatchCall?.[0]);
     expect(roomPatchUrl).toContain("/rest/v1/rooms?id=eq.room-1");
+  });
+
+  it("does not block match finish when match_reports persistence is unavailable", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+
+      if (url.includes("/rest/v1/match_reports")) {
+        return new Response(null, { status: 404 });
+      }
+
+      return new Response(null, { status: 200 });
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      persistMatchFinish(
+        {
+          SUPABASE_URL: "https://example.supabase.co",
+          SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        },
+        {
+          roomId: "room-1",
+          match: {
+            ...createMatchEngine({
+              mode: "1v1",
+              roomCode: "Q9JA",
+              players: [
+                { playerId: "red-1", team: "red", nickname: "kkk" },
+                { playerId: "blue-1", team: "blue", nickname: "爸爸" },
+              ],
+              now: Date.parse("2026-04-19T08:00:00.000Z"),
+              random: createSequenceRandom([0.3, 0.1, 0.2126, 0.0795]),
+            }),
+            phase: "finished",
+            winner: "red",
+            winReason: "time_up",
+            endedAt: "2026-04-19T08:01:03.000Z",
+          },
+          matchId: "match-1",
+          roomCode: "Q9JA",
+          winnerTeam: "red",
+          winReason: "time_up",
+          durationMs: 60_000,
+          totalCorrect: { red: 2, blue: 1 },
+          finalHp: { red: 94, blue: 86 },
+          finalEventLog: [],
+        },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/rest/v1/match_reports"),
+      expect.any(Object),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Failed to persist match report; gameplay finish path will continue without it.",
+      expect.any(Error),
+    );
   });
 });
