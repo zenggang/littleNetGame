@@ -1,13 +1,17 @@
 import type { DemoMatch, DemoMatchEvent, DemoMember } from "../../../src/lib/demo/store";
-import { applyQuestionOutcome, createInitialTeams } from "../../../src/lib/game/match";
+import {
+  applyQuestionOutcome,
+  applyTeamPenalty,
+  createInitialTeams,
+} from "../../../src/lib/game/match";
 import type { MatchEvent } from "../../../src/lib/game/protocol/events";
 import { generateQuestion, isAnswerCorrect } from "../../../src/lib/game/questions";
 import { resolveTeamCounts } from "../../../src/lib/game/config";
 import type { MatchMode, TeamCounts, TeamName } from "../../../src/lib/game/types";
 
 export const COUNTDOWN_MS = 3_000;
-export const MATCH_DURATION_MS = 5 * 60_000;
-export const QUESTION_DURATION_MS = 60_000;
+export const MATCH_DURATION_MS = 60_000;
+export const QUESTION_DURATION_MS = 15_000;
 export const WRONG_COOLDOWN_MS = 1_000;
 export const TIMEOUT_DAMAGE = 2;
 
@@ -247,14 +251,49 @@ export function submitAnswer(
   }
 
   if (!isAnswerCorrect(match.currentQuestion, input.answer)) {
+    const wrongAnswerDamage = resolveWrongAnswerDamage(match.currentQuestion.damage);
+    const outcome = applyTeamPenalty({
+      teams: match.teams,
+      team: member.team,
+      penaltyDamage: wrongAnswerDamage,
+    });
+
+    match.teams = outcome.teams;
     match.cooldowns[input.playerId] = now + WRONG_COOLDOWN_MS;
     match.events.unshift(
       createLogEvent(
-        "answer_wrong",
-        `${member.nickname} 答错了，1 秒后再试。`,
+        "hp_changed",
+        renderHpText(match.teams),
         member.team,
+        member.team,
+        wrongAnswerDamage,
       ),
     );
+    match.events.unshift(
+      createLogEvent(
+        "answer_wrong",
+        `${member.nickname} 答错了，${member.team === "red" ? "红队" : "蓝队"}受到 ${wrongAnswerDamage} 点反噬。`,
+        member.team,
+        member.team,
+        wrongAnswerDamage,
+      ),
+    );
+
+    if (outcome.winner) {
+      match.winner = outcome.winner;
+      finishMatch(match, "hp_zero", now);
+
+      return {
+        state: match,
+        events: [
+          createProtocolEvent(match, "match.finished", {
+            winner: match.winner ?? outcome.winner,
+            reason: "hp_zero",
+          }),
+        ],
+        result: { ok: false, message: "答错受伤，本局结束" },
+      };
+    }
 
     return {
       state: match,
@@ -367,6 +406,11 @@ function nextQuestion(
   match.events.unshift(
     createLogEvent("question_spawned", `第 ${match.questionIndex} 题：${question.prompt}`),
   );
+}
+
+function resolveWrongAnswerDamage(questionDamage: number) {
+  // 当前题库伤害值都是偶数；向上取整能保护后续内容包出现奇数伤害时仍至少承担半伤。
+  return Math.ceil(questionDamage / 2);
 }
 
 function finishMatch(

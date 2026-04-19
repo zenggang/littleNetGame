@@ -1,5 +1,5 @@
 import { canStartMatch, detectMatchMode, resolveTeamCounts } from "@/lib/game/config";
-import { applyQuestionOutcome, createInitialTeams } from "@/lib/game/match";
+import { applyQuestionOutcome, applyTeamPenalty, createInitialTeams } from "@/lib/game/match";
 import { generateQuestion } from "@/lib/game/questions";
 import type {
   MatchMode,
@@ -14,8 +14,8 @@ const STORE_EVENT = "little-net-game:demo-store-update";
 const SESSION_KEY = "little-net-game:player-session";
 
 const COUNTDOWN_MS = 3_000;
-const MATCH_DURATION_MS = 5 * 60_000;
-const QUESTION_DURATION_MS = 60_000;
+const MATCH_DURATION_MS = 60_000;
+const QUESTION_DURATION_MS = 15_000;
 const WRONG_COOLDOWN_MS = 1_000;
 const TIMEOUT_DAMAGE = 2;
 
@@ -432,10 +432,40 @@ export function submitAnswer(
     const isCorrect = isPayloadCorrect(match.currentQuestion, payload);
 
     if (!isCorrect) {
+      const wrongAnswerDamage = resolveWrongAnswerDamage(match.currentQuestion.damage);
+      const outcome = applyTeamPenalty({
+        teams: match.teams,
+        team: member.team,
+        penaltyDamage: wrongAnswerDamage,
+      });
+
+      match.teams = outcome.teams;
       match.cooldowns[session.playerId] = now + WRONG_COOLDOWN_MS;
       match.events.unshift(
-        createEvent("answer_wrong", `${member.nickname} 答错了，1 秒后再试。`, member.team),
+        createEvent(
+          "hp_changed",
+          renderHpText(match.teams),
+          member.team,
+          member.team,
+          wrongAnswerDamage,
+        ),
       );
+      match.events.unshift(
+        createEvent(
+          "answer_wrong",
+          `${member.nickname} 答错了，${member.team === "red" ? "红队" : "蓝队"}受到 ${wrongAnswerDamage} 点反噬。`,
+          member.team,
+          member.team,
+          wrongAnswerDamage,
+        ),
+      );
+      if (outcome.winner) {
+        match.winner = outcome.winner;
+        finishMatch(match, store.rooms[match.roomCode] ?? null, "hp_zero");
+        result = { ok: false, message: "答错受伤，本局结束" };
+        return;
+      }
+
       result = { ok: false, message: "不对，再想一想" };
       return;
     }
@@ -560,6 +590,11 @@ function nextQuestion(match: DemoMatch) {
   match.events.unshift(
     createEvent("question_spawned", `第 ${match.questionIndex} 题：${question.prompt}`),
   );
+}
+
+function resolveWrongAnswerDamage(questionDamage: number) {
+  // 当前题库伤害值都是偶数；向上取整能保护后续内容包出现奇数伤害时仍至少承担半伤。
+  return Math.ceil(questionDamage / 2);
 }
 
 function finishMatch(

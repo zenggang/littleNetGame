@@ -11,8 +11,24 @@ import {
 } from "../src/lib/match-engine";
 
 describe("match engine", () => {
-  it("keeps question rounds long enough for manual production playtests", () => {
-    expect(QUESTION_DURATION_MS).toBeGreaterThanOrEqual(60_000);
+  it("uses a 60 second active match with 15 second question rounds after countdown", () => {
+    const startedAt = Date.parse("2026-04-16T10:00:00.000Z");
+    const engine = createMatchEngine({
+      mode: "1v1",
+      roomCode: "ABCD",
+      players: [
+        { playerId: "red-1", team: "red" },
+        { playerId: "blue-1", team: "blue" },
+      ],
+      now: startedAt,
+      random: createSequenceRandom([0.3, 0.1, 0.2126, 0.0795]),
+    });
+
+    expect(MATCH_DURATION_MS).toBe(60_000);
+    expect(QUESTION_DURATION_MS).toBe(15_000);
+    expect(Date.parse(engine.countdownEndsAt) - startedAt).toBe(COUNTDOWN_MS);
+    expect(Date.parse(engine.questionDeadlineAt) - Date.parse(engine.countdownEndsAt)).toBe(15_000);
+    expect(Date.parse(engine.endsAt) - Date.parse(engine.countdownEndsAt)).toBe(60_000);
   });
 
   it("opens the first question after countdown and resolves the first correct answer", () => {
@@ -47,7 +63,7 @@ describe("match engine", () => {
     expect(result.result.message).toBe("答对了，继续下一题");
   });
 
-  it("applies wrong-answer cooldowns and blocks repeated guesses inside the cooldown window", () => {
+  it("applies half question damage to the answering team on a wrong answer", () => {
     const engine = createMatchEngine({
       mode: "1v1",
       roomCode: "ABCD",
@@ -80,6 +96,14 @@ describe("match engine", () => {
 
     expect(wrong.result.ok).toBe(false);
     expect(wrong.result.message).toBe("不对，再想一想");
+    expect(wrong.state.teams.red.hpCurrent).toBe(96);
+    expect(wrong.state.teams.blue.hpCurrent).toBe(100);
+    expect(wrong.state.events[0]).toMatchObject({
+      type: "answer_wrong",
+      team: "red",
+      targetTeam: "red",
+      damage: 4,
+    });
     expect(blocked.result.message).toBe("答错了，冷静 1 秒再来");
     expect(wrong.state.cooldowns["red-1"]).toBeGreaterThan(
       Date.parse("2026-04-16T10:00:04.000Z"),

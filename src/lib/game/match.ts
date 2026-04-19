@@ -70,6 +70,36 @@ export function applyQuestionOutcome(input: {
   };
 }
 
+/**
+ * 答错惩罚是“单方自损”，和超时双方扣血、答对攻击对面都不是同一种结算。
+ * 这里单独收口，避免调用方用 timeout 分支模拟答错时误伤双方或污染胜负归因。
+ */
+export function applyTeamPenalty(input: {
+  teams: Record<TeamName, TeamState>;
+  team: TeamName;
+  penaltyDamage: number;
+}): {
+  teams: Record<TeamName, TeamState>;
+  winner: TeamName | null;
+  reason: "hp_zero" | "penalty";
+} {
+  const teams = {
+    red: { ...input.teams.red },
+    blue: { ...input.teams.blue },
+  };
+
+  teams[input.team].hpCurrent = clampHp(
+    teams[input.team].hpCurrent - input.penaltyDamage,
+    teams[input.team].hpMax,
+  );
+
+  return {
+    teams,
+    winner: pickWinner(teams, null),
+    reason: teams[input.team].hpCurrent === 0 ? "hp_zero" : "penalty",
+  };
+}
+
 function pickWinner(
   teams: Record<TeamName, TeamState>,
   attacker: TeamName | null,

@@ -116,6 +116,9 @@ export default function BattlePage() {
   const activeQuestionExpired =
     liveMatch?.phase === "active" &&
     Math.ceil((Date.parse(liveMatch.questionDeadlineAt) - now) / 1000) <= 0;
+  const activeMatchExpired =
+    liveMatch?.phase === "active" &&
+    Math.ceil((Date.parse(liveMatch.endsAt) - now) / 1000) <= 0;
   const previousMatch = previousMatchRef.current;
 
   useEffect(() => {
@@ -133,7 +136,7 @@ export default function BattlePage() {
   }, [isCoolingDown]);
 
   useEffect(() => {
-    if (!activeQuestionExpired) {
+    if (!activeQuestionExpired && !activeMatchExpired) {
       return;
     }
 
@@ -142,7 +145,12 @@ export default function BattlePage() {
     }, 1_500);
 
     return () => window.clearInterval(timer);
-  }, [activeQuestionExpired, liveMatch?.currentQuestion.key, loadSnapshot]);
+  }, [
+    activeMatchExpired,
+    activeQuestionExpired,
+    liveMatch?.currentQuestion.key,
+    loadSnapshot,
+  ]);
 
   if (!hydrated || !snapshot) {
     return (
@@ -228,6 +236,7 @@ export default function BattlePage() {
                 match.phase !== "active" ||
                 isCoolingDown ||
                 !viewer ||
+                activeMatchExpired ||
                 viewModel.questionCard.secondsLeft <= 0
               }
               flash={controlFlash}

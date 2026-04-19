@@ -303,6 +303,11 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
 
+    if (cue.kind === "wrong-answer") {
+      this.playWrongAnswerCue(cue);
+      return;
+    }
+
     if (cue.kind === "timeout") {
       this.playTimeoutCue(cue);
       return;
@@ -352,6 +357,12 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.shake(160, 0.006);
     this.spawnImpact("red", cue.redDamage);
     this.spawnImpact("blue", cue.blueDamage);
+  }
+
+  private playWrongAnswerCue(cue: Extract<BattleStageCue, { kind: "wrong-answer" }>) {
+    this.spawnCenterBanner("答错反噬", 0xffefe1, cue.team === "red" ? "#8e3d21" : "#215aa9");
+    this.cameras.main.shake(140, 0.005);
+    this.spawnImpact(cue.team, cue.damage);
   }
 
   private playFinishCue(cue: Extract<BattleStageCue, { kind: "finish" }>) {

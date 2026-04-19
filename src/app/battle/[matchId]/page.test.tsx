@@ -250,6 +250,22 @@ describe("BattlePage", () => {
     expect(await screen.findByRole("button", { name: "question-form-submit" })).toBeDisabled();
   });
 
+  it("disables answer submission after the total match timer reaches zero", async () => {
+    const snapshot = createBattleSnapshot({
+      match: {
+        ...createBattleSnapshot().match,
+        questionDeadlineAt: "2099-04-16T10:00:08.000Z",
+        endsAt: "2020-04-16T10:01:03.000Z",
+      },
+    });
+    getMatchSnapshot.mockResolvedValue(snapshot);
+    matchSessionSnapshot.current = snapshot;
+
+    render(<BattlePage />);
+
+    expect(await screen.findByRole("button", { name: "question-form-submit" })).toBeDisabled();
+  });
+
   it("polls the latest snapshot while an active question is visibly expired", async () => {
     let setIntervalSpy: ReturnType<typeof vi.spyOn> | null = null;
 
@@ -258,6 +274,31 @@ describe("BattlePage", () => {
         match: {
           ...createBattleSnapshot().match,
           questionDeadlineAt: "2020-04-16T10:00:08.000Z",
+        },
+      });
+      getMatchSnapshot.mockResolvedValue(snapshot);
+      matchSessionSnapshot.current = snapshot;
+      setIntervalSpy = vi.spyOn(window, "setInterval");
+
+      render(<BattlePage />);
+
+      await screen.findByRole("button", { name: "question-form-submit" });
+
+      expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
+    } finally {
+      setIntervalSpy?.mockRestore();
+    }
+  });
+
+  it("polls the latest snapshot while the active match timer is visibly expired", async () => {
+    let setIntervalSpy: ReturnType<typeof vi.spyOn> | null = null;
+
+    try {
+      const snapshot = createBattleSnapshot({
+        match: {
+          ...createBattleSnapshot().match,
+          questionDeadlineAt: "2099-04-16T10:00:08.000Z",
+          endsAt: "2020-04-16T10:01:03.000Z",
         },
       });
       getMatchSnapshot.mockResolvedValue(snapshot);

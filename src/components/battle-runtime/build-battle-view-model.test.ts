@@ -29,7 +29,7 @@ describe("buildBattleViewModel", () => {
     questionIndex: 2,
     questionDeadlineAt: "2026-04-16T10:00:08.000Z",
     countdownEndsAt: "2026-04-16T09:59:59.000Z",
-    endsAt: "2026-04-16T10:01:08.000Z",
+    endsAt: "2026-04-16T10:01:03.000Z",
     recentPrompts: ["27 + 16 = ?"],
     winner: null,
     winReason: null,
@@ -55,8 +55,10 @@ describe("buildBattleViewModel", () => {
     });
 
     expect(viewModel.topBarLabel).toBe("红 100 / 蓝 90");
+    expect(viewModel.topBarTimerLabel).toBe("总 59 秒");
     expect(viewModel.topBarPhaseLabel).toBe("抢答开火");
     expect(viewModel.questionCard?.prompt).toBe("27 + 16 = ?");
+    expect(viewModel.questionCard?.secondsLeft).toBe(4);
     expect(viewModel.questionCard?.hint).toBe("抢在对面前面答出来");
     expect(viewModel.questionCard?.submitLabel).toBe("发射箭矢");
     expect(viewModel.footerMessage).toBe("保持专注，抢在别人前面答出来。");
@@ -177,5 +179,64 @@ describe("buildBattleViewModel", () => {
     });
     expect(viewModel.questionCard?.hint).toBe("超时会让双方一起掉血");
     expect(viewModel.stageBannerLabel).toBe("超时惩罚");
+  });
+
+  it("builds a wrong-answer cue when one camp loses hp without changing question", () => {
+    const previousMatch = createMatch({
+      currentQuestion: {
+        key: "q-2",
+        difficulty: 2,
+        type: "addition",
+        prompt: "27 + 16 = ?",
+        answerKind: "single-number",
+        damage: 8,
+        correctAnswer: { value: 43 },
+        meta: {},
+      },
+      questionIndex: 2,
+      teams: {
+        red: { name: "red", hpCurrent: 100, hpMax: 100, damageMultiplier: 1 },
+        blue: { name: "blue", hpCurrent: 90, hpMax: 100, damageMultiplier: 1 },
+      },
+    });
+
+    const match = createMatch({
+      currentQuestion: previousMatch.currentQuestion,
+      questionIndex: 2,
+      teams: {
+        red: { name: "red", hpCurrent: 96, hpMax: 100, damageMultiplier: 1 },
+        blue: { name: "blue", hpCurrent: 90, hpMax: 100, damageMultiplier: 1 },
+      },
+      events: [
+        {
+          id: "event-1",
+          type: "answer_wrong",
+          text: "阿杰答错了，红队受到 4 点反噬。",
+          team: "red",
+          targetTeam: "red",
+          damage: 4,
+          createdAt: "2026-04-16T10:00:04.000Z",
+        },
+      ],
+    });
+
+    const viewModel = buildBattleViewModel({
+      match,
+      previousMatch,
+      viewerTeam: "red",
+      now: Date.parse("2026-04-16T10:00:04.000Z"),
+      isCoolingDown: true,
+      feedback: "",
+      error: "",
+    });
+
+    expect(viewModel.stageCue).toEqual({
+      id: "wrong:q-2:red:4:event-1",
+      kind: "wrong-answer",
+      team: "red",
+      damage: 4,
+    });
+    expect(viewModel.stageBannerLabel).toBe("红队失手");
+    expect(viewModel.footerMessage).toBe("答错受伤，装填结束后再抢。");
   });
 });
