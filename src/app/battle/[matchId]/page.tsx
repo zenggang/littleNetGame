@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
 export const BATTLE_RESULT_REDIRECT_DELAY_MS = 1_200;
 
 type ControlFlash = "idle" | "success" | "wrong";
+type BattleSnapshotLike = Awaited<ReturnType<typeof getMatchSnapshot>> | CoordinatorMatchSnapshot | null;
 
 export default function BattlePage() {
   const params = useParams<{ matchId: string }>();
@@ -35,6 +36,8 @@ export default function BattlePage() {
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getMatchSnapshot>> | null>(null);
   const previousMatchRef = useRef<CoordinatorMatchSnapshot["match"] | null>(null);
   const coolingDownRef = useRef(false);
+  const liveSnapshotRef = useRef<BattleSnapshotLike>(null);
+  const resultRedirectScheduledRef = useRef<string | null>(null);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -78,26 +81,39 @@ export default function BattlePage() {
       : null,
   });
   const liveSnapshot = matchSession.snapshot ?? snapshot;
+  const liveMatchPhase = liveSnapshot?.match?.phase ?? null;
 
   useEffect(() => {
-    if (liveSnapshot?.match?.phase !== "finished") {
+    liveSnapshotRef.current = liveSnapshot;
+  }, [liveSnapshot]);
+
+  useEffect(() => {
+    if (liveMatchPhase !== "finished") {
+      resultRedirectScheduledRef.current = null;
       return;
     }
 
-    if (liveSnapshot.room) {
+    if (resultRedirectScheduledRef.current === matchId) {
+      return;
+    }
+
+    resultRedirectScheduledRef.current = matchId;
+    const finishedSnapshot = liveSnapshotRef.current;
+
+    if (finishedSnapshot?.room && finishedSnapshot.match) {
       writeCachedMatchReport(matchId, {
-        roomCode: liveSnapshot.room.code,
-        winner: liveSnapshot.match.winner ?? "red",
-        winReason: liveSnapshot.match.winReason ?? "time_up",
+        roomCode: finishedSnapshot.room.code,
+        winner: finishedSnapshot.match.winner ?? "red",
+        winReason: finishedSnapshot.match.winReason ?? "time_up",
         teams: {
-          red: { hpCurrent: liveSnapshot.match.teams.red.hpCurrent },
-          blue: { hpCurrent: liveSnapshot.match.teams.blue.hpCurrent },
+          red: { hpCurrent: finishedSnapshot.match.teams.red.hpCurrent },
+          blue: { hpCurrent: finishedSnapshot.match.teams.blue.hpCurrent },
         },
-        totalCorrect: liveSnapshot.match.totalCorrect,
+        totalCorrect: finishedSnapshot.match.totalCorrect,
         durationMs:
-          Date.parse(liveSnapshot.match.endedAt ?? liveSnapshot.match.endsAt) -
-          Date.parse(liveSnapshot.match.createdAt),
-        finalEventLog: liveSnapshot.match.events,
+          Date.parse(finishedSnapshot.match.endedAt ?? finishedSnapshot.match.endsAt) -
+          Date.parse(finishedSnapshot.match.createdAt),
+        finalEventLog: finishedSnapshot.match.events,
       });
     }
 
@@ -110,7 +126,7 @@ export default function BattlePage() {
     }, BATTLE_RESULT_REDIRECT_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [liveSnapshot, matchId, router]);
+  }, [liveMatchPhase, matchId, router]);
 
   useEffect(() => {
     if (controlFlash === "idle") {

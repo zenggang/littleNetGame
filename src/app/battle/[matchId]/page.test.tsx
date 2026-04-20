@@ -255,6 +255,72 @@ describe("BattlePage", () => {
     }
   });
 
+  it("does not cancel the result redirect just because a finished snapshot refreshes again", async () => {
+    let requestAnimationFrameSpy: ReturnType<typeof vi.spyOn> | null = null;
+    let cancelAnimationFrameSpy: ReturnType<typeof vi.spyOn> | null = null;
+    let setTimeoutSpy: ReturnType<typeof vi.spyOn> | null = null;
+
+    try {
+      const baseSnapshot = createBattleSnapshot();
+      const finishedSnapshot = createBattleSnapshot({
+        match: {
+          ...baseSnapshot.match,
+          phase: "finished",
+          winner: "red",
+          winReason: "hp_zero",
+          endedAt: "2026-04-16T10:00:58.000Z",
+        },
+      });
+      getMatchSnapshot.mockResolvedValue(finishedSnapshot);
+      matchSessionSnapshot.current = finishedSnapshot;
+      requestAnimationFrameSpy = vi
+        .spyOn(window, "requestAnimationFrame")
+        .mockImplementation((callback: FrameRequestCallback) => {
+          callback(0);
+          return 1;
+        });
+      cancelAnimationFrameSpy = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation(() => undefined);
+      setTimeoutSpy = vi.spyOn(window, "setTimeout");
+
+      await act(async () => {
+        const rendered = render(<BattlePage />);
+        await Promise.resolve();
+
+        matchSessionSnapshot.current = {
+          ...finishedSnapshot,
+          match: {
+            ...finishedSnapshot.match,
+          },
+        };
+        rendered.rerender(<BattlePage />);
+      });
+
+      expect(screen.getByText("返回房间")).toBeInTheDocument();
+      const redirectTimers = setTimeoutSpy.mock.calls.filter(([, delay]) => (
+        delay === BATTLE_RESULT_REDIRECT_DELAY_MS
+      ));
+
+      expect(push).not.toHaveBeenCalled();
+      expect(redirectTimers).toHaveLength(1);
+
+      await act(async () => {
+        const callback = redirectTimers[0]?.[0];
+
+        if (typeof callback === "function") {
+          callback();
+        }
+      });
+
+      expect(push).toHaveBeenCalledWith("/result/match-1");
+    } finally {
+      setTimeoutSpy?.mockRestore();
+      requestAnimationFrameSpy?.mockRestore();
+      cancelAnimationFrameSpy?.mockRestore();
+    }
+  });
+
   it("disables answer submission after the visible question timer reaches zero", async () => {
     const snapshot = createBattleSnapshot({
       match: {
