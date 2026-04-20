@@ -18,7 +18,7 @@
 当前真实实现已经进入：
 
 - `Next.js + Phaser + Supabase + Cloudflare Durable Objects coordinator`
-- `local demo mode` 与 `real online mode` 双路径
+- `event-first, snapshot-on-demand` 同步主链路
 - 大厅 -> 房间 -> 对战 -> 结算 -> 再来一局 主链路已跑通
 
 因此，阅读这份文档时应把它视为：

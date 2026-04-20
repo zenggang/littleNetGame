@@ -3,12 +3,14 @@
 - [x] `npm run test:legacy`
 - [x] `npm run test:unit`
 - [x] `npm run test:worker`
-- [ ] `npm run lint`（当前会被 `.worktrees/.../.next` 生成产物拖失败，需要补 ignore 或清理工作树）
+- [x] `npm run lint`
 - [x] `npm run build`
-- [x] 核心主链路已跑通：大厅 -> 房间 -> 对战 -> 结算 -> 再来一局
-- [x] Local Demo 模式已可验证主流程
+- [x] coordinator 常规高频路径已改为 `event-first, snapshot-on-demand`
+- [x] room / match 广播已拆开
+- [x] battle 页不再依赖定时 `match.tick + loadSnapshot`
+- [x] room 页不再依赖高频轮询快照
+- [x] `seq gap -> sync.request -> snapshot resync` 最小恢复闭环已接通
 - [ ] 双设备竖屏联机验证：大厅 -> 房间 -> 对战 -> 结算 -> 再来一局
 - [ ] 弱网断线重连验证：房间页、战斗页各 1 次
 - [ ] Cloudflare coordinator logs 无未处理异常
-- [ ] Supabase `match_reports` migration 已在目标环境落地并正常写入
-- [ ] 结果页在刷新 / 新标签打开场景下仍显示可信终局数据
+- [ ] Supabase `match_reports` 正常写入

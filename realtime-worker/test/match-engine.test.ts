@@ -96,6 +96,18 @@ describe("match engine", () => {
 
     expect(wrong.result.ok).toBe(false);
     expect(wrong.result.message).toBe("不对，再想一想");
+    expect(wrong.events[0]).toMatchObject({
+      type: "match.answer_rejected",
+      payload: {
+        playerId: "red-1",
+        team: "red",
+        damage: 4,
+        hp: {
+          red: 96,
+          blue: 100,
+        },
+      },
+    });
     expect(wrong.state.teams.red.hpCurrent).toBe(96);
     expect(wrong.state.teams.blue.hpCurrent).toBe(100);
     expect(wrong.state.events[0]).toMatchObject({
@@ -145,6 +157,54 @@ describe("match engine", () => {
     expect(finished.events.at(-1)?.type).toBe("match.finished");
     expect(finished.state.phase).toBe("finished");
     expect(finished.state.winReason).toBe("time_up");
+  });
+
+  it("emits damage and finish events when a wrong answer causes immediate defeat", () => {
+    const engine = createMatchEngine({
+      mode: "1v1",
+      roomCode: "ABCD",
+      players: [
+        { playerId: "red-1", team: "red" },
+        { playerId: "blue-1", team: "blue" },
+      ],
+      now: Date.parse("2026-04-16T10:00:00.000Z"),
+      random: createSequenceRandom([0.3, 0.1, 0.2126, 0.0795]),
+    });
+    const activated = tickMatch(
+      engine,
+      Date.parse("2026-04-16T10:00:00.000Z") + COUNTDOWN_MS,
+      createSequenceRandom([0.2, 0.4, 0.5, 0.7]),
+    );
+
+    activated.state.teams.red.hpCurrent = 4;
+
+    const wrong = submitAnswer(activated.state, {
+      playerId: "red-1",
+      answer: { value: "0" },
+      now: Date.parse("2026-04-16T10:00:04.000Z"),
+      random: createSequenceRandom([0.1, 0.3, 0.6, 0.2]),
+    });
+
+    expect(wrong.state.phase).toBe("finished");
+    expect(wrong.events[0]).toMatchObject({
+      type: "match.answer_rejected",
+      payload: {
+        playerId: "red-1",
+        team: "red",
+        damage: 4,
+        hp: {
+          red: 0,
+          blue: 100,
+        },
+      },
+    });
+    expect(wrong.events[1]).toMatchObject({
+      type: "match.finished",
+      payload: {
+        winner: "blue",
+        reason: "hp_zero",
+      },
+    });
   });
 
   it("keeps cumulative hp changes across multiple question resolutions", () => {

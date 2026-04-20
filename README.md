@@ -39,6 +39,11 @@
 - 当前仓库支持两套本地验证方式：
   - 无环境变量：自动进入本地 Demo 模式
   - 有完整环境变量：进入真实联机集成模式
+- 真实联机模式当前以 `Cloudflare Durable Objects coordinator` 为权威实时层，
+  常规同步已经切到 `event-first, snapshot-on-demand`：
+  - 常规房间/对局变化走 websocket 协议事件
+  - 新连接、重连、显式同步请求才补 `room.snapshot` / `match.snapshot`
+  - battle / room 页面不再依赖定时 `match.tick` 或高频页面轮询来推进真实在线状态
 - 自动化本地验证使用：
   - `npm run test:all`
   - `npm run lint`

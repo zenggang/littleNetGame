@@ -12,7 +12,7 @@
 - `上战场，下操作台`
 - Phaser 主舞台
 - 发箭 / 命中 / 超时 / 收束等关键演出
-- 本地 Demo 模式下可验证主要 battle 反馈
+- battle 页不再依赖定时 `match.tick + loadSnapshot`
 
 因此，这份文档现在更适合作为：
 

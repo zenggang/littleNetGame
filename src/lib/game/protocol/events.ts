@@ -1,6 +1,6 @@
-import type { TeamName } from "@/lib/game/types";
+import type { AnswerKind, MathQuestion, TeamName } from "@/lib/game/types";
 
-export type MatchInputSchema = "single-number" | "quotient-remainder";
+export type MatchInputSchema = AnswerKind;
 
 export type MatchEvent =
   | {
@@ -10,9 +10,13 @@ export type MatchEvent =
       payload: {
         question: {
           id: string;
+          difficulty: MathQuestion["difficulty"];
+          type: MathQuestion["type"];
           prompt: string;
           inputSchema: MatchInputSchema;
           damage: number;
+          correctAnswer: MathQuestion["correctAnswer"];
+          meta: MathQuestion["meta"];
           deadlineAt: string;
         };
       };
@@ -34,6 +38,18 @@ export type MatchEvent =
         attackerTeam: TeamName;
         targetTeam: TeamName;
         damage: number;
+        hp: Record<TeamName, number>;
+      };
+    }
+  | {
+      seq: number;
+      type: "match.answer_rejected";
+      serverTime: number;
+      payload: {
+        playerId: string;
+        team: TeamName;
+        damage: number;
+        cooldownUntil: number;
         hp: Record<TeamName, number>;
       };
     }

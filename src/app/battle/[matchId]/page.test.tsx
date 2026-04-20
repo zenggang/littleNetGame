@@ -9,7 +9,6 @@ const {
   submitAnswer,
   matchSessionRestart,
   matchSessionSubmit,
-  matchSessionTick,
   matchSessionSnapshot,
   stagePropsSpy,
 } = vi.hoisted(() => ({
@@ -19,7 +18,6 @@ const {
   submitAnswer: vi.fn(),
   matchSessionRestart: vi.fn(),
   matchSessionSubmit: vi.fn(),
-  matchSessionTick: vi.fn(),
   matchSessionSnapshot: { current: null as Record<string, unknown> | null },
   stagePropsSpy: vi.fn(),
 }));
@@ -72,7 +70,7 @@ vi.mock("@/lib/game/client/use-match-session", () => ({
     snapshot: matchSessionSnapshot.current,
     submitAnswer: matchSessionSubmit,
     restartRoom: matchSessionRestart,
-    tickMatch: matchSessionTick,
+    tickMatch: vi.fn(),
   }),
 }));
 
@@ -157,14 +155,12 @@ describe("BattlePage", () => {
     submitAnswer.mockReset();
     matchSessionRestart.mockReset();
     matchSessionSubmit.mockReset();
-    matchSessionTick.mockReset();
     stagePropsSpy.mockReset();
 
     const snapshot = createBattleSnapshot();
     getMatchSnapshot.mockResolvedValue(snapshot);
     matchSessionSnapshot.current = snapshot;
     matchSessionRestart.mockResolvedValue({ ok: true, message: "房间已重置" });
-    matchSessionTick.mockResolvedValue({ ok: true, message: "已同步" });
     window.sessionStorage.clear();
   });
 
@@ -290,70 +286,4 @@ describe("BattlePage", () => {
     expect(await screen.findByRole("button", { name: "question-form-submit" })).toBeDisabled();
   });
 
-  it("polls the latest snapshot while an active question is visibly expired", async () => {
-    let setIntervalSpy: ReturnType<typeof vi.spyOn> | null = null;
-
-    try {
-      const snapshot = createBattleSnapshot({
-        match: {
-          ...createBattleSnapshot().match,
-          questionDeadlineAt: "2020-04-16T10:00:08.000Z",
-        },
-      });
-      getMatchSnapshot.mockResolvedValue(snapshot);
-      matchSessionSnapshot.current = snapshot;
-      setIntervalSpy = vi.spyOn(window, "setInterval");
-
-      render(<BattlePage />);
-
-      await screen.findByRole("button", { name: "question-form-submit" });
-
-      expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
-      const tickCallback = setIntervalSpy.mock.calls.find(([, delay]) => delay === 1_500)?.[0];
-
-      await act(async () => {
-        if (typeof tickCallback === "function") {
-          tickCallback();
-        }
-      });
-
-      expect(matchSessionTick).toHaveBeenCalled();
-    } finally {
-      setIntervalSpy?.mockRestore();
-    }
-  });
-
-  it("polls the latest snapshot while the active match timer is visibly expired", async () => {
-    let setIntervalSpy: ReturnType<typeof vi.spyOn> | null = null;
-
-    try {
-      const snapshot = createBattleSnapshot({
-        match: {
-          ...createBattleSnapshot().match,
-          questionDeadlineAt: "2099-04-16T10:00:08.000Z",
-          endsAt: "2020-04-16T10:01:03.000Z",
-        },
-      });
-      getMatchSnapshot.mockResolvedValue(snapshot);
-      matchSessionSnapshot.current = snapshot;
-      setIntervalSpy = vi.spyOn(window, "setInterval");
-
-      render(<BattlePage />);
-
-      await screen.findByRole("button", { name: "question-form-submit" });
-
-      expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 1_500)).toBe(true);
-      const tickCallback = setIntervalSpy.mock.calls.find(([, delay]) => delay === 1_500)?.[0];
-
-      await act(async () => {
-        if (typeof tickCallback === "function") {
-          tickCallback();
-        }
-      });
-
-      expect(matchSessionTick).toHaveBeenCalled();
-    } finally {
-      setIntervalSpy?.mockRestore();
-    }
-  });
 });

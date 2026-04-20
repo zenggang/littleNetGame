@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
 import {
+  applyMatchEventToSnapshot,
+  applyRoomEventToMatchSnapshot,
+} from "@/lib/game/protocol/apply-coordinator-events";
+import {
   getMatchSnapshot,
   restartRoom as restartDemoRoom,
   submitAnswer as submitDemoAnswer,
@@ -51,11 +55,16 @@ export function useMatchSession(input: {
   const { initialSnapshot = null, nickname, playerId, roomCode } = input;
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<CoordinatorMatchSnapshot | null>(initialSnapshot);
+  const snapshotRef = useRef<CoordinatorMatchSnapshot | null>(initialSnapshot);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
   const useLocalDemoMode = !hasSupabaseEnvConfigured();
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   useEffect(() => {
     if (!roomCode) {
@@ -99,6 +108,20 @@ export function useMatchSession(input: {
     const openMatchSocket = createMatchSocketFactory(openCoordinatorSocket);
     let disposed = false;
 
+    const requestSync = (reason: "seq_gap" | "manual" | "match_missing") => {
+      const socket = socketRef.current;
+
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: "sync.request",
+        commandId: crypto.randomUUID(),
+        payload: { reason },
+      }));
+    };
+
     const rejectPending = (reason: string) => {
       pendingRef.current.forEach((pending) => {
         pending.reject(new Error(reason));
@@ -121,17 +144,44 @@ export function useMatchSession(input: {
       const message = JSON.parse(event.data) as CoordinatorMessage;
 
       if (message.type === "match.snapshot") {
+        snapshotRef.current = message.payload;
         setSnapshot(message.payload);
+        return;
+      }
+
+      if (message.type === "match.event") {
+        const currentSnapshot = snapshotRef.current;
+        const currentSeq = currentSnapshot?.match?.protocolSeq ?? 0;
+
+        if (!currentSnapshot?.match) {
+          requestSync("match_missing");
+          return;
+        }
+
+        if (currentSeq === 0 && message.payload.seq > 1) {
+          requestSync("seq_gap");
+          return;
+        }
+
+        if (currentSeq > 0 && message.payload.seq > currentSeq + 1) {
+          requestSync("seq_gap");
+          return;
+        }
+
+        const nextSnapshot = applyMatchEventToSnapshot(currentSnapshot, message.payload);
+        snapshotRef.current = nextSnapshot;
+        setSnapshot(nextSnapshot);
         return;
       }
 
       if (message.type === "room.snapshot") {
         setSnapshot((current) => {
           if (!current) {
-            return current;
+            snapshotRef.current = message.payload;
+            return message.payload;
           }
 
-          return {
+          const nextSnapshot = {
             ...current,
             room: message.payload.room,
             members: message.payload.members,
@@ -139,6 +189,17 @@ export function useMatchSession(input: {
             viewer: message.payload.viewer,
             session: message.payload.session,
           };
+          snapshotRef.current = nextSnapshot;
+          return nextSnapshot;
+        });
+        return;
+      }
+
+      if (message.type === "room.event") {
+        setSnapshot((current) => {
+          const nextSnapshot = applyRoomEventToMatchSnapshot(current, message.payload);
+          snapshotRef.current = nextSnapshot;
+          return nextSnapshot;
         });
         return;
       }

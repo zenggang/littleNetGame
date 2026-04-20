@@ -14,9 +14,13 @@ describe("reduceMatchEvent", () => {
       payload: {
         question: {
           id: "q-1",
+          difficulty: 2,
+          type: "addition",
           prompt: "27 + 16 = ?",
           inputSchema: "single-number",
           damage: 10,
+          correctAnswer: { value: 43 },
+          meta: {},
           deadlineAt: "2026-04-16T10:00:08.000Z",
         },
       },
@@ -47,9 +51,13 @@ describe("reduceMatchEvent", () => {
       payload: {
         question: {
           id: "q-1",
+          difficulty: 2,
+          type: "addition",
           prompt: "27 + 16 = ?",
           inputSchema: "single-number",
           damage: 10,
+          correctAnswer: { value: 43 },
+          meta: {},
           deadlineAt: "2026-04-16T10:00:08.000Z",
         },
       },
@@ -86,9 +94,13 @@ describe("reduceMatchEvent", () => {
       payload: {
         question: {
           id: "q-stale",
+          difficulty: 3,
+          type: "multiplication",
           prompt: "should not apply",
           inputSchema: "single-number",
           damage: 99,
+          correctAnswer: { value: 99 },
+          meta: {},
           deadlineAt: "2026-04-16T10:00:09.000Z",
         },
       },
@@ -99,5 +111,43 @@ describe("reduceMatchEvent", () => {
     expect(resolvedState.currentQuestion?.id).toBe("q-1");
     expect(resolvedState.teams.blue.hpCurrent).toBe(90);
     expect(resolvedState.lastSeq).toBe(2);
+  });
+
+  it("records seq progress for wrong-answer penalty events", () => {
+    const openedState = reduceMatchEvent(createEmptyMatchState(), {
+      seq: 1,
+      type: "match.question_opened",
+      serverTime: 1_716_000_000_000,
+      payload: {
+        question: {
+          id: "q-1",
+          prompt: "27 + 16 = ?",
+          inputSchema: "single-number",
+          damage: 10,
+          deadlineAt: "2026-04-16T10:00:08.000Z",
+          difficulty: 2,
+          type: "addition",
+          correctAnswer: { value: 43 },
+          meta: {},
+        },
+      },
+    });
+
+    const rejectedState = reduceMatchEvent(openedState, {
+      seq: 2,
+      type: "match.answer_rejected",
+      serverTime: 1_716_000_000_500,
+      payload: {
+        playerId: "red-1",
+        team: "red",
+        damage: 5,
+        cooldownUntil: 1_716_000_001_500,
+        hp: { red: 95, blue: 100 },
+      },
+    });
+
+    expect(rejectedState.teams.red.hpCurrent).toBe(95);
+    expect(rejectedState.teams.blue.hpCurrent).toBe(100);
+    expect(rejectedState.lastSeq).toBe(2);
   });
 });

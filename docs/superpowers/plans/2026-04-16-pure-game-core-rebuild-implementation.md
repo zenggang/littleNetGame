@@ -1,6 +1,6 @@
 # Pure Game Core Rebuild Implementation Plan
 
-> 2026-04-20 状态说明：这份文档保留为历史实施主计划，不再是当前活跃执行面板。当前真实状态与下一阶段里程，请看 `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md`。尾部 checklist 也应优先让位给 `docs/verification/game-core-release-checklist.md`。
+> **Status (2026-04-20):** Historical master plan. Large parts of this plan have already landed, and the current realtime sync strategy has moved past the old snapshot-first assumptions. Use `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md` for current-state truth, and use newer focused specs/plans for active follow-up work.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -11,23 +11,6 @@
 **Tech Stack:** Next.js 16, React 19, TypeScript, Phaser, Vitest, React Testing Library, Supabase, Cloudflare Workers + Durable Objects, Wrangler
 
 ---
-
-## Execution Status Snapshot
-
-As of 2026-04-20, the repo has already landed the main repository shape described here:
-
-- game shell rebuild: largely landed
-- battle runtime rebuild: largely landed
-- realtime coordinator rebuild: landed
-- result/reporting/verification: partially landed, still needs release-gate closure
-
-This means the document is now most useful as:
-
-- historical execution baseline
-- file-level implementation trace
-- reference when comparing planned-vs-actual landing
-
-It is no longer the best place to track the active next milestone.
 
 ## Scope Note
 

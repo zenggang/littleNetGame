@@ -112,6 +112,7 @@ function createActiveCoordinatorSnapshot() {
       events: [],
       createdAt: "2026-04-16T10:00:00.000Z",
       endedAt: null,
+      protocolSeq: 0,
     },
   };
 }
@@ -221,6 +222,250 @@ describe("useMatchSession", () => {
     );
   });
 
+  it("applies match events without waiting for a fresh snapshot", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: createActiveCoordinatorSnapshot(),
+      });
+      socket.emitMessage({
+        type: "match.event",
+        payload: {
+          seq: 1,
+          type: "match.answer_resolved",
+          serverTime: Date.parse("2026-04-16T10:00:04.000Z"),
+          payload: {
+            attackerTeam: "red",
+            targetTeam: "blue",
+            damage: 8,
+            hp: {
+              red: 100,
+              blue: 84,
+            },
+          },
+        },
+      });
+    });
+
+    expect(result.current.snapshot?.match?.teams.blue.hpCurrent).toBe(84);
+    expect(result.current.snapshot?.match?.totalCorrect.red).toBe(2);
+    expect(result.current.snapshot?.match?.lastHitTeam).toBe("red");
+    expect(result.current.snapshot?.match?.protocolSeq).toBe(1);
+    expect(result.current.snapshot?.match?.events[0]).toMatchObject({
+      type: "answer_correct",
+      team: "red",
+      targetTeam: "blue",
+      damage: 8,
+    });
+    expect(result.current.snapshot?.match?.events[1]).toMatchObject({
+      type: "hp_changed",
+      team: "red",
+      targetTeam: "blue",
+      damage: 8,
+    });
+  });
+
+  it("applies wrong-answer penalty events and cooldown locally", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: createActiveCoordinatorSnapshot(),
+      });
+      socket.emitMessage({
+        type: "match.event",
+        payload: {
+          seq: 1,
+          type: "match.answer_rejected",
+          serverTime: Date.parse("2026-04-16T10:00:04.000Z"),
+          payload: {
+            playerId: "player-1",
+            team: "red",
+            damage: 4,
+            cooldownUntil: Date.parse("2026-04-16T10:00:05.000Z"),
+            hp: {
+              red: 96,
+              blue: 92,
+            },
+          },
+        },
+      });
+    });
+
+    expect(result.current.snapshot?.match?.teams.red.hpCurrent).toBe(96);
+    expect(result.current.snapshot?.match?.cooldowns["player-1"]).toBe(
+      Date.parse("2026-04-16T10:00:05.000Z"),
+    );
+    expect(result.current.snapshot?.match?.protocolSeq).toBe(1);
+    expect(result.current.snapshot?.match?.events[0]).toMatchObject({
+      type: "answer_wrong",
+      team: "red",
+      targetTeam: "red",
+      damage: 4,
+    });
+    expect(result.current.snapshot?.match?.events[1]).toMatchObject({
+      type: "hp_changed",
+      team: "red",
+      targetTeam: "red",
+      damage: 4,
+    });
+  });
+
+  it("requests a sync when event seq jumps forward", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: {
+          ...createActiveCoordinatorSnapshot(),
+          match: {
+            ...createActiveCoordinatorSnapshot().match,
+            protocolSeq: 1,
+          },
+        },
+      });
+      socket.emitMessage({
+        type: "match.event",
+        payload: {
+          seq: 3,
+          type: "match.finished",
+          serverTime: Date.parse("2026-04-16T10:00:40.000Z"),
+          payload: {
+            winner: "red",
+            reason: "hp_zero",
+          },
+        },
+      });
+    });
+
+    expect(socket.send).toHaveBeenCalledWith(
+      expect.stringContaining("\"type\":\"sync.request\""),
+    );
+    expect(result.current.snapshot?.match?.phase).toBe("active");
+    expect(result.current.snapshot?.match?.protocolSeq).toBe(1);
+  });
+
+  it("requests a sync when an unknown seq baseline receives a later event", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: createActiveCoordinatorSnapshot(),
+      });
+      socket.emitMessage({
+        type: "match.event",
+        payload: {
+          seq: 5,
+          type: "match.finished",
+          serverTime: Date.parse("2026-04-16T10:00:40.000Z"),
+          payload: {
+            winner: "red",
+            reason: "hp_zero",
+          },
+        },
+      });
+    });
+
+    expect(socket.send).toHaveBeenCalledWith(
+      expect.stringContaining("\"type\":\"sync.request\""),
+    );
+  });
+
+  it("clears stale match state when the room is reopened by another player", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "match.snapshot",
+        payload: createActiveCoordinatorSnapshot(),
+      });
+      socket.emitMessage({
+        type: "room.event",
+        payload: {
+          type: "room.reopened",
+          payload: {
+            canStart: true,
+            clearMatch: true,
+          },
+        },
+      });
+    });
+
+    expect(result.current.snapshot?.room?.status).toBe("open");
+    expect(result.current.snapshot?.room?.activeMatchId).toBeNull();
+    expect(result.current.snapshot?.match).toBeNull();
+  });
+
 
   it("reconnects after socket close and refreshes the latest match snapshot", async () => {
     const firstSocket = new FakeSocket();
@@ -299,6 +544,7 @@ describe("useMatchSession", () => {
             events: [],
             createdAt: "2026-04-16T10:00:00.000Z",
             endedAt: null,
+            protocolSeq: 0,
           },
         },
       });
@@ -373,6 +619,7 @@ describe("useMatchSession", () => {
             events: [],
             createdAt: "2026-04-16T10:00:00.000Z",
             endedAt: "2026-04-16T10:00:52.000Z",
+            protocolSeq: 4,
           },
         },
       });
