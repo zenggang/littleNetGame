@@ -10,7 +10,9 @@
 - [x] battle 页不再依赖定时 `match.tick + loadSnapshot`
 - [x] room 页不再依赖高频轮询快照
 - [x] `seq gap -> sync.request -> snapshot resync` 最小恢复闭环已接通
+- [x] 若 coordinator 生产公网入口仍为 `*.workers.dev`，客户端已改走主站同域 `/api/coordinator-bridge/*`
 - [ ] 双设备竖屏联机验证：大厅 -> 房间 -> 对战 -> 结算 -> 再来一局
 - [ ] 弱网断线重连验证：房间页、战斗页各 1 次
 - [ ] Cloudflare coordinator logs 无未处理异常
 - [ ] Supabase `match_reports` 正常写入
+- [ ] 生产域名下 `/api/coordinator-ticket` 已返回 `mode=bridge`，且 room / battle 页能经主站 bridge 正常联机

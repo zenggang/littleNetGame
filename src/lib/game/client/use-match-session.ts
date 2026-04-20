@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import {
+  callCoordinatorBridge,
+  openCoordinatorSocket,
+} from "@/lib/game/client/coordinator-client";
 import {
   applyMatchEventToSnapshot,
   applyRoomEventToMatchSnapshot,
@@ -55,12 +58,14 @@ export function useMatchSession(input: {
   const { initialSnapshot = null, nickname, playerId, roomCode } = input;
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<CoordinatorMatchSnapshot | null>(initialSnapshot);
+  const [transportMode, setTransportMode] = useState<"socket" | "bridge">("socket");
   const snapshotRef = useRef<CoordinatorMatchSnapshot | null>(initialSnapshot);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
   const useLocalDemoMode = !hasSupabaseEnvConfigured();
+  const useBridgeMode = !useLocalDemoMode && transportMode === "bridge";
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -103,6 +108,55 @@ export function useMatchSession(input: {
 
     if (!canConnect) {
       return;
+    }
+
+    if (useBridgeMode) {
+      let disposed = false;
+      let syncTimer: number | null = null;
+
+      const syncSnapshot = async () => {
+        try {
+          const result = await callCoordinatorBridge({
+            roomCode,
+            playerId,
+            nickname,
+            view: "match",
+          });
+
+          if (disposed) {
+            return;
+          }
+
+          setConnected(true);
+          setSnapshot(result.matchSnapshot);
+          snapshotRef.current = result.matchSnapshot;
+        } catch {
+          if (disposed) {
+            return;
+          }
+
+          setConnected(false);
+        }
+      };
+
+      void syncSnapshot();
+
+      syncTimer = window.setInterval(() => {
+        if (document.hidden) {
+          return;
+        }
+
+        void syncSnapshot();
+      }, 1_000);
+
+      return () => {
+        disposed = true;
+        setConnected(false);
+
+        if (syncTimer !== null) {
+          window.clearInterval(syncTimer);
+        }
+      };
     }
 
     const openMatchSocket = createMatchSocketFactory(openCoordinatorSocket);
@@ -217,21 +271,33 @@ export function useMatchSession(input: {
     };
 
     const connect = async () => {
-      const socket = await openMatchSocket({ roomCode, playerId, nickname });
+      try {
+        const socket = await openMatchSocket({ roomCode, playerId, nickname });
 
-      if (disposed) {
-        socket.close();
-        return;
-      }
+        if (disposed) {
+          socket.close();
+          return;
+        }
 
-      socketRef.current = socket;
-      socket.addEventListener("open", () => setConnected(true), { once: true });
-      socket.addEventListener("message", handleMessage);
-      socket.addEventListener("close", () => {
+        socketRef.current = socket;
+        socket.addEventListener("open", () => setConnected(true), { once: true });
+        socket.addEventListener("message", handleMessage);
+        socket.addEventListener("close", () => {
+          setConnected(false);
+          rejectPending("协调层连接已断开");
+          scheduleReconnect();
+        }, { once: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "COORDINATOR_CONNECT_BOOTSTRAP_FAILED";
+
+        if (message === "COORDINATOR_HTTP_BRIDGE_REQUIRED") {
+          setTransportMode("bridge");
+          return;
+        }
+
         setConnected(false);
-        rejectPending("协调层连接已断开");
         scheduleReconnect();
-      }, { once: true });
+      }
     };
 
     void connect();
@@ -249,7 +315,7 @@ export function useMatchSession(input: {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [canConnect, initialSnapshot?.match?.id, nickname, playerId, roomCode, useLocalDemoMode]);
+  }, [canConnect, initialSnapshot?.match?.id, nickname, playerId, roomCode, useBridgeMode, useLocalDemoMode]);
 
   useEffect(() => {
     if (!useLocalDemoMode) {
@@ -345,6 +411,26 @@ export function useMatchSession(input: {
     return result;
   };
 
+  const sendBridgeCommand = async (
+    command:
+      | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">
+      | Omit<Extract<CoordinatorCommand, { type: "match.tick" }>, "commandId">,
+  ): Promise<CommandResult> => {
+    const result = await callCoordinatorBridge({
+      roomCode,
+      playerId,
+      nickname,
+      view: "match",
+      command,
+    });
+
+    setConnected(true);
+    setSnapshot(result.matchSnapshot);
+    snapshotRef.current = result.matchSnapshot;
+    return result.result ?? { ok: true, message: "已同步" };
+  };
+
   return {
     connected,
     snapshot,
@@ -360,6 +446,13 @@ export function useMatchSession(input: {
               answer,
             },
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "match.submit_answer",
+              payload: {
+                answer,
+              },
+            })
         : sendCommand({
             type: "match.submit_answer",
             payload: {
@@ -371,6 +464,10 @@ export function useMatchSession(input: {
         ? sendLocalCommand({
             type: "room.restart",
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "room.restart",
+            })
         : sendCommand({
             type: "room.restart",
           }),
@@ -379,6 +476,10 @@ export function useMatchSession(input: {
         ? sendLocalCommand({
             type: "match.tick",
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "match.tick",
+            })
         : sendCommand({
             type: "match.tick",
           }),

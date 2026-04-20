@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import {
+  callCoordinatorBridge,
+  openCoordinatorSocket,
+} from "@/lib/game/client/coordinator-client";
 import { applyRoomEventToRoomSnapshot } from "@/lib/game/protocol/apply-coordinator-events";
 import {
   getRoomSnapshot,
@@ -60,11 +63,13 @@ export function useRoomSession(input: {
   const [connected, setConnected] = useState(false);
   const [connectionError, setConnectionError] = useState("");
   const [snapshot, setSnapshot] = useState<CoordinatorRoomSnapshot | null>(initialSnapshot);
+  const [transportMode, setTransportMode] = useState<"socket" | "bridge">("socket");
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const pendingRef = useRef(new Map<string, PendingCommand>());
   const canConnect = Boolean(playerId && nickname && roomCode);
   const useLocalDemoMode = !hasSupabaseEnvConfigured();
+  const useBridgeMode = !useLocalDemoMode && transportMode === "bridge";
   const resolvedSnapshot = resolvePreferredRoomSnapshot(snapshot, initialSnapshot);
 
   useEffect(() => {
@@ -108,6 +113,56 @@ export function useRoomSession(input: {
 
     if (!canConnect) {
       return;
+    }
+
+    if (useBridgeMode) {
+      let disposed = false;
+      let syncTimer: number | null = null;
+
+      const syncSnapshot = async () => {
+        try {
+          const result = await callCoordinatorBridge({
+            roomCode,
+            playerId,
+            nickname,
+            view: "room",
+          });
+
+          if (disposed) {
+            return;
+          }
+
+          setConnected(true);
+          setConnectionError("");
+          setSnapshot(result.roomSnapshot);
+        } catch (error) {
+          if (disposed) {
+            return;
+          }
+
+          setConnected(false);
+          setConnectionError(error instanceof Error ? error.message : "COORDINATOR_BRIDGE_FAILED");
+        }
+      };
+
+      void syncSnapshot();
+
+      syncTimer = window.setInterval(() => {
+        if (document.hidden) {
+          return;
+        }
+
+        void syncSnapshot();
+      }, 1_000);
+
+      return () => {
+        disposed = true;
+        setConnected(false);
+
+        if (syncTimer !== null) {
+          window.clearInterval(syncTimer);
+        }
+      };
     }
 
     const openRoomSocket = createRoomSocketFactory(openCoordinatorSocket);
@@ -205,6 +260,11 @@ export function useRoomSession(input: {
         const message = error instanceof Error
           ? error.message
           : "COORDINATOR_CONNECT_BOOTSTRAP_FAILED";
+        if (message === "COORDINATOR_HTTP_BRIDGE_REQUIRED") {
+          setTransportMode("bridge");
+          return;
+        }
+
         setConnectionError(message);
 
         if (message !== "COORDINATOR_NOT_READY") {
@@ -237,7 +297,7 @@ export function useRoomSession(input: {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [canConnect, nickname, playerId, roomCode, useLocalDemoMode]);
+  }, [canConnect, nickname, playerId, roomCode, useBridgeMode, useLocalDemoMode]);
 
   const sendCommand = (command: RoomCommand) =>
     new Promise<CommandResult>((resolve, reject) => {
@@ -277,6 +337,24 @@ export function useRoomSession(input: {
     return { ok: true, message: "对战开始", matchId: match.id };
   };
 
+  const sendBridgeCommand = async (
+    command: RoomCommand,
+  ): Promise<CommandResult> => {
+    const result = await callCoordinatorBridge({
+      roomCode,
+      playerId,
+      nickname,
+      view: "room",
+      command,
+    });
+
+    setConnected(true);
+    setConnectionError("");
+    setSnapshot(result.roomSnapshot);
+
+    return result.result ?? { ok: true, message: "已同步" };
+  };
+
   return {
     connected,
     connectionError,
@@ -287,6 +365,11 @@ export function useRoomSession(input: {
             type: "room.join",
             payload: { nickname: nextNickname },
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "room.join",
+              payload: { nickname: nextNickname },
+            })
         : sendCommand({
             type: "room.join",
             payload: { nickname: nextNickname },
@@ -297,6 +380,11 @@ export function useRoomSession(input: {
             type: "room.switch_team",
             payload: { team },
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "room.switch_team",
+              payload: { team },
+            })
         : sendCommand({
             type: "room.switch_team",
             payload: { team },
@@ -306,6 +394,10 @@ export function useRoomSession(input: {
         ? sendLocalCommand({
             type: "room.start_match",
           })
+        : useBridgeMode
+          ? sendBridgeCommand({
+              type: "room.start_match",
+            })
         : sendCommand({
             type: "room.start_match",
           }),

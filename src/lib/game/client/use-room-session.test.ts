@@ -39,11 +39,13 @@ class FakeSocket {
   }
 }
 
-const { openCoordinatorSocket } = vi.hoisted(() => ({
+const { callCoordinatorBridge, openCoordinatorSocket } = vi.hoisted(() => ({
+  callCoordinatorBridge: vi.fn(),
   openCoordinatorSocket: vi.fn(),
 }));
 
 vi.mock("@/lib/game/client/coordinator-client", () => ({
+  callCoordinatorBridge,
   openCoordinatorSocket,
 }));
 
@@ -58,6 +60,7 @@ async function flushAsyncWork() {
 describe("useRoomSession", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    callCoordinatorBridge.mockReset();
     openCoordinatorSocket.mockReset();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
@@ -439,5 +442,69 @@ describe("useRoomSession", () => {
     await expect(result.current.startMatch()).rejects.toThrow(
       "COORDINATOR_NOT_READY",
     );
+  });
+
+  it("falls back to the same-origin bridge when direct websocket mode is disabled", async () => {
+    openCoordinatorSocket.mockRejectedValue(
+      new Error("COORDINATOR_HTTP_BRIDGE_REQUIRED"),
+    );
+    callCoordinatorBridge.mockResolvedValue({
+      roomSnapshot: {
+        room: {
+          id: "room-1",
+          code: "ABCD",
+          gradeLabel: "小学二年级",
+          capacity: 2,
+          hostPlayerId: "player-1",
+          status: "open",
+          activeMatchId: null,
+          createdAt: "2026-04-16T10:00:00.000Z",
+        },
+        members: [
+          {
+            playerId: "player-1",
+            nickname: "阿杰",
+            team: "red",
+            joinedAt: "2026-04-16T10:00:00.000Z",
+          },
+        ],
+        match: null,
+        viewer: {
+          playerId: "player-1",
+          nickname: "阿杰",
+          team: "red",
+          joinedAt: "2026-04-16T10:00:00.000Z",
+        },
+        canStart: false,
+        session: {
+          playerId: "player-1",
+          nickname: "阿杰",
+        },
+      },
+      matchSnapshot: null,
+      result: {
+        ok: true,
+        message: "已同步",
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useRoomSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    expect(callCoordinatorBridge).toHaveBeenCalledWith({
+      roomCode: "ABCD",
+      playerId: "player-1",
+      nickname: "阿杰",
+      view: "room",
+    });
+    expect(result.current.connected).toBe(true);
   });
 });

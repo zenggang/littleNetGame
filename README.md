@@ -44,6 +44,9 @@
   - 常规房间/对局变化走 websocket 协议事件
   - 新连接、重连、显式同步请求才补 `room.snapshot` / `match.snapshot`
   - battle / room 页面不再依赖定时 `match.tick` 或高频页面轮询来推进真实在线状态
+  - 若生产 `COORDINATOR_BASE_URL` 仍为 `*.workers.dev`，前端会自动切到主站同域
+    `/api/coordinator-bridge/*`，由 Vercel 服务端代签名并代调 coordinator，
+    避免国内客户端直连 `workers.dev` 握手超时
 - 自动化本地验证使用：
   - `npm run test:all`
   - `npm run lint`
@@ -91,3 +94,5 @@
 - workflow 只自动部署 `realtime-worker` 的代码，不会自动修改 Cloudflare 里已存在的运行时 secrets。
 - `COORDINATOR_SHARED_SECRET`、`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` 仍然需要先在 Cloudflare worker 侧配置完成。
 - Vercel 仍然依赖现有 Git integration 自动部署，workflow 的 smoke test 会等待生产域名升级后再验通，而不是重复发起一份 Vercel 部署。
+- 生产发布前如果 `COORDINATOR_BASE_URL` 指向 `*.workers.dev`，必须确认主站 bridge 已随当前版本一起上线；
+  否则浏览器仍可能在房间页 / 对战页直接卡在 coordinator 握手阶段。

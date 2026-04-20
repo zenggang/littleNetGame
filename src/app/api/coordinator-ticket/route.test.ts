@@ -43,6 +43,33 @@ describe("/api/coordinator-ticket", () => {
     await expect(response.json()).resolves.toEqual({
       token: "signed-ticket",
       url: "https://coordinator.example.com/room/ABCD/connect",
+      mode: "socket",
+    });
+  });
+
+  it("marks workers.dev coordinators for bridge mode", async () => {
+    readCoordinatorEnv.mockReturnValue({
+      baseUrl: "https://little-net-game-coordinator.javababy.workers.dev",
+      sharedSecret: "super-secret-value",
+    });
+    signCoordinatorTicket.mockResolvedValue("signed-ticket");
+
+    const response = await POST(
+      new Request("https://math.pigou.top/api/coordinator-ticket", {
+        method: "POST",
+        body: JSON.stringify({
+          playerId: "player-1",
+          nickname: "阿杰",
+          roomCode: "ABCD",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      token: "signed-ticket",
+      url: "https://little-net-game-coordinator.javababy.workers.dev/room/ABCD/connect",
+      mode: "bridge",
     });
   });
 

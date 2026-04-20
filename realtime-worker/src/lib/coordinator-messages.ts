@@ -30,17 +30,7 @@ type CheckpointPolicyInput = {
 export function buildSnapshotMessages(
   input: BuildSnapshotMessagesInput,
 ): CoordinatorMessage[] {
-  const viewer = input.roomState.members.find(
-    (member) => member.playerId === input.session.playerId,
-  ) ?? null;
-  const roomSnapshot: CoordinatorRoomSnapshot = {
-    room: input.roomState.room,
-    members: input.roomState.members,
-    match: input.matchState,
-    viewer,
-    canStart: input.roomState.canStart,
-    session: input.session,
-  };
+  const roomSnapshot = buildRoomSnapshot(input);
   const messages: CoordinatorMessage[] = [
     {
       type: "room.snapshot",
@@ -48,14 +38,9 @@ export function buildSnapshotMessages(
     },
   ];
 
-  if (input.matchState) {
-    const matchSnapshot: CoordinatorMatchSnapshot = {
-      room: input.roomState.room,
-      members: input.roomState.members,
-      viewer,
-      session: input.session,
-      match: input.matchState,
-    };
+  const matchSnapshot = buildMatchSnapshot(input);
+
+  if (matchSnapshot) {
     messages.push({
       type: "match.snapshot",
       payload: matchSnapshot,
@@ -63,6 +48,42 @@ export function buildSnapshotMessages(
   }
 
   return messages;
+}
+
+export function buildRoomSnapshot(
+  input: BuildSnapshotMessagesInput,
+): CoordinatorRoomSnapshot {
+  const viewer = input.roomState.members.find(
+    (member) => member.playerId === input.session.playerId,
+  ) ?? null;
+  return {
+    room: input.roomState.room,
+    members: input.roomState.members,
+    match: input.matchState,
+    viewer,
+    canStart: input.roomState.canStart,
+    session: input.session,
+  };
+}
+
+export function buildMatchSnapshot(
+  input: BuildSnapshotMessagesInput,
+): CoordinatorMatchSnapshot | null {
+  if (input.matchState) {
+    const viewer = input.roomState.members.find(
+      (member) => member.playerId === input.session.playerId,
+    ) ?? null;
+
+    return {
+      room: input.roomState.room,
+      members: input.roomState.members,
+      viewer,
+      session: input.session,
+      match: input.matchState,
+    };
+  }
+
+  return null;
 }
 
 export function buildMatchEventMessages(events: MatchEvent[]): CoordinatorMessage[] {

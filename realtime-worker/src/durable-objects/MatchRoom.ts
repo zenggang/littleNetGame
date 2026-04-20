@@ -2,6 +2,9 @@ import { DurableObject, type DurableObjectState } from "cloudflare:workers";
 
 import type { DemoPlayerSession } from "../../../src/lib/demo/store";
 import type {
+  CoordinatorBridgeRequest,
+  CoordinatorBridgeResponse,
+  CoordinatorCommandResult,
   CoordinatorCommand,
   CoordinatorMessage,
   RoomEvent,
@@ -11,7 +14,9 @@ import { detectMatchMode } from "../../../src/lib/game/config";
 import type { TeamName } from "../../../src/lib/game/types";
 import { verifyCoordinatorTicket } from "../lib/coordinator-ticket";
 import {
+  buildMatchSnapshot,
   buildMatchEventMessages,
+  buildRoomSnapshot,
   buildRoomEventMessage,
   buildSnapshotMessages,
   shouldPersistCheckpoint,
@@ -97,10 +102,6 @@ export class MatchRoom extends DurableObject<Env> {
   }
 
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("Expected WebSocket upgrade", { status: 426 });
-    }
-
     const url = new URL(request.url);
     const roomCode = url.pathname.split("/")[2]?.toUpperCase();
     const token = url.searchParams.get("token");
@@ -112,6 +113,18 @@ export class MatchRoom extends DurableObject<Env> {
     const session = await verifyCoordinatorTicket(token, this.env.COORDINATOR_SHARED_SECRET);
     if (session.roomCode.toUpperCase() !== roomCode) {
       return new Response("Ticket room mismatch", { status: 403 });
+    }
+
+    if (request.headers.get("Upgrade") !== "websocket") {
+      if (request.method === "POST" && url.pathname.endsWith("/bridge")) {
+        return this.handleBridgeRequest(request, {
+          playerId: session.playerId,
+          nickname: session.nickname,
+          roomCode,
+        });
+      }
+
+      return new Response("Expected WebSocket upgrade", { status: 426 });
     }
 
     await this.ensureRoomLoaded(roomCode, session.playerId);
@@ -258,6 +271,136 @@ export class MatchRoom extends DurableObject<Env> {
       const message = error instanceof Error ? error.message : "协调层执行失败";
       this.sendCommandResult(ws, command.commandId, false, message);
     }
+  }
+
+  private async handleBridgeRequest(
+    request: Request,
+    session: ConnectionState,
+  ): Promise<Response> {
+    await this.ensureRoomLoaded(session.roomCode, session.playerId);
+
+    if (!this.roomState?.room) {
+      return Response.json(
+        {
+          error: "ROOM_NOT_FOUND",
+        },
+        { status: 404 },
+      );
+    }
+
+    const body = await request.json() as CoordinatorBridgeRequest;
+    let result: CoordinatorCommandResult | undefined;
+
+    if (body.command) {
+      result = await this.processBridgeCommand(session, body.command);
+    } else {
+      const syncResult = await this.syncMatchClock();
+      if (syncResult.events.length > 0 || syncResult.roomReopened) {
+        await this.scheduleCheckpoint(syncResult.roomReopened);
+      }
+      this.broadcastMatchEvents(syncResult.events);
+      if (syncResult.roomReopened) {
+        this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+      }
+    }
+
+    return Response.json(this.buildBridgeResponse(session, body.view, result));
+  }
+
+  private async processBridgeCommand(
+    session: ConnectionState,
+    command: CoordinatorBridgeRequest["command"],
+  ): Promise<CoordinatorCommandResult> {
+    try {
+      if (!command) {
+        return { ok: true, message: "已同步" };
+      }
+
+      if (command.type === "room.join") {
+        await this.handleJoinRoom(
+          {
+            serializeAttachment: () => undefined,
+          } as unknown as DurableWebSocket,
+          session,
+          {
+            ...command,
+            commandId: "bridge-command",
+          },
+        );
+        return { ok: true, message: "已进入房间" };
+      }
+
+      if (command.type === "room.switch_team") {
+        await this.handleSwitchTeam(session, command.payload.team);
+        return { ok: true, message: "已切换阵营" };
+      }
+
+      if (command.type === "room.start_match") {
+        const matchId = await this.handleStartMatch(session);
+        return { ok: true, message: "对战开始", matchId };
+      }
+
+      if (command.type === "room.restart") {
+        await this.handleRestartRoom();
+        return { ok: true, message: "房间已重置" };
+      }
+
+      if (command.type === "match.tick") {
+        const syncResult = await this.syncMatchClock();
+        if (syncResult.events.length > 0 || syncResult.roomReopened) {
+          await this.scheduleCheckpoint(syncResult.roomReopened);
+        }
+        this.broadcastMatchEvents(syncResult.events);
+        if (syncResult.roomReopened) {
+          this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+        }
+        return { ok: true, message: "已同步" };
+      }
+
+      const result = await this.handleSubmitAnswer(session, {
+        ...command,
+        commandId: "bridge-command",
+      });
+      return {
+        ok: result.ok,
+        message: result.message,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : "协调层执行失败",
+      };
+    }
+  }
+
+  private buildBridgeResponse(
+    session: ConnectionState,
+    view: CoordinatorBridgeRequest["view"],
+    result?: CoordinatorCommandResult,
+  ): CoordinatorBridgeResponse {
+    if (!this.roomState) {
+      return {
+        roomSnapshot: null,
+        matchSnapshot: null,
+        result,
+      };
+    }
+
+    const snapshotInput = {
+      roomState: this.roomState,
+      matchState: this.matchState,
+      session,
+    };
+
+    return {
+      roomSnapshot: buildRoomSnapshot(snapshotInput),
+      matchSnapshot: view === "match"
+        ? buildMatchSnapshot(snapshotInput)
+        : this.matchState
+          ? buildMatchSnapshot(snapshotInput)
+          : null,
+      result,
+    };
   }
 
   private async handleJoinRoom(

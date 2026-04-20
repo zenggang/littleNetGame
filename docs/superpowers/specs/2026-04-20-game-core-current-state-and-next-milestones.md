@@ -31,6 +31,9 @@
 - 前端：`Next.js + React + TypeScript`
 - 战斗运行时：`Phaser`
 - 实时权威层：`Cloudflare Durable Objects coordinator`
+- 公网接入层：当生产 `COORDINATOR_BASE_URL` 仍为 `*.workers.dev` 时，
+  由 `Next.js/Vercel` 提供同域 `/api/coordinator-bridge/*` HTTP bridge，
+  服务端代签名并代调 coordinator，避免客户端直连不可达域名
 - 持久化 / 认证 / 查询：`Supabase`
 - 本地验证补充路径：`local demo mode`
 
@@ -46,6 +49,7 @@
 - 常规对局变化走 `match.event`
 - 新连接、重连、显式同步请求才补 `room.snapshot` / `match.snapshot`
 - 前端 `useRoomSession` / `useMatchSession` 已能消费协议事件并局部推进状态
+- 浏览器不再被要求直接访问 `*.workers.dev`；必要时可退到主站同域 bridge
 
 这意味着：
 
@@ -87,6 +91,7 @@
 - 断线 / 重连 / 跳 seq 恢复验证
 - coordinator logs 收口
 - `match_reports` 目标环境一致性
+- 主站同域 coordinator bridge 在生产真实可达
 
 ### M2：协议可观测性与埋点
 

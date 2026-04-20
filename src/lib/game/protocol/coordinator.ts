@@ -11,6 +11,8 @@ export type CoordinatorLiveMatch = DemoMatch & {
   protocolSeq?: number;
 };
 
+export type CoordinatorTransportMode = "socket" | "bridge";
+
 export type RoomEvent =
   | {
       type: "room.member_joined";
@@ -104,6 +106,39 @@ export type CoordinatorCommand =
       };
     };
 
+export type CoordinatorBridgeView = "room" | "match";
+
+export type CoordinatorBridgeCommand =
+  | Omit<Extract<CoordinatorCommand, { type: "room.join" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "room.switch_team" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "room.start_match" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "room.restart" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "match.submit_answer" }>, "commandId">
+  | Omit<Extract<CoordinatorCommand, { type: "match.tick" }>, "commandId">;
+
+export type CoordinatorCommandResult = {
+  ok: boolean;
+  message: string;
+  matchId?: string;
+};
+
+export type CoordinatorBridgeRequest = {
+  view: CoordinatorBridgeView;
+  command?: CoordinatorBridgeCommand;
+};
+
+export type CoordinatorBridgeResponse = {
+  roomSnapshot: CoordinatorRoomSnapshot | null;
+  matchSnapshot: CoordinatorMatchSnapshot | null;
+  result?: CoordinatorCommandResult;
+};
+
+export type CoordinatorTicketResponse = {
+  token: string;
+  url: string;
+  mode?: CoordinatorTransportMode;
+};
+
 export type CoordinatorMessage =
   | {
       type: "room.snapshot";
@@ -125,10 +160,7 @@ export type CoordinatorMessage =
       type: "command.result";
       payload: {
         commandId: string;
-        ok: boolean;
-        message: string;
-        matchId?: string;
-      };
+      } & CoordinatorCommandResult;
     }
   | {
       type: "session.error";

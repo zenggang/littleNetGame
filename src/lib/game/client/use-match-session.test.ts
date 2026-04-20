@@ -41,11 +41,13 @@ class FakeSocket {
   }
 }
 
-const { openCoordinatorSocket } = vi.hoisted(() => ({
+const { callCoordinatorBridge, openCoordinatorSocket } = vi.hoisted(() => ({
+  callCoordinatorBridge: vi.fn(),
   openCoordinatorSocket: vi.fn(),
 }));
 
 vi.mock("@/lib/game/client/coordinator-client", () => ({
+  callCoordinatorBridge,
   openCoordinatorSocket,
 }));
 
@@ -120,6 +122,7 @@ function createActiveCoordinatorSnapshot() {
 describe("useMatchSession", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    callCoordinatorBridge.mockReset();
     openCoordinatorSocket.mockReset();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.example.com";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
@@ -464,6 +467,40 @@ describe("useMatchSession", () => {
     expect(result.current.snapshot?.room?.status).toBe("open");
     expect(result.current.snapshot?.room?.activeMatchId).toBeNull();
     expect(result.current.snapshot?.match).toBeNull();
+  });
+
+  it("falls back to the same-origin bridge when direct websocket mode is disabled", async () => {
+    openCoordinatorSocket.mockRejectedValue(
+      new Error("COORDINATOR_HTTP_BRIDGE_REQUIRED"),
+    );
+    callCoordinatorBridge.mockResolvedValue({
+      roomSnapshot: createActiveCoordinatorSnapshot(),
+      matchSnapshot: createActiveCoordinatorSnapshot(),
+      result: {
+        ok: true,
+        message: "已同步",
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useMatchSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+    await flushAsyncWork();
+
+    expect(callCoordinatorBridge).toHaveBeenCalledWith({
+      roomCode: "ABCD",
+      playerId: "player-1",
+      nickname: "阿杰",
+      view: "match",
+    });
+    expect(result.current.connected).toBe(true);
+    expect(result.current.snapshot?.match?.id).toBe("match-1");
   });
 
 
