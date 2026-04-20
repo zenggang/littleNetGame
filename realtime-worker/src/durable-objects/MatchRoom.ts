@@ -3,13 +3,19 @@ import { DurableObject, type DurableObjectState } from "cloudflare:workers";
 import type { DemoPlayerSession } from "../../../src/lib/demo/store";
 import type {
   CoordinatorCommand,
-  CoordinatorMatchSnapshot,
   CoordinatorMessage,
-  CoordinatorRoomSnapshot,
+  RoomEvent,
 } from "../../../src/lib/game/protocol/coordinator";
+import type { MatchEvent } from "../../../src/lib/game/protocol/events";
 import { detectMatchMode } from "../../../src/lib/game/config";
 import type { TeamName } from "../../../src/lib/game/types";
 import { verifyCoordinatorTicket } from "../lib/coordinator-ticket";
+import {
+  buildMatchEventMessages,
+  buildRoomEventMessage,
+  buildSnapshotMessages,
+  shouldPersistCheckpoint,
+} from "../lib/coordinator-messages";
 import {
   createMatchEngine,
   submitAnswer,
@@ -24,12 +30,12 @@ import {
 } from "../lib/room-engine";
 import { shouldRefreshRoomMembership } from "../lib/room-sync";
 import {
+  insertRoomMember,
   loadCoordinatorState,
   markMatchActive,
   persistMatchFinish,
   persistMatchStart,
   persistRoomReopened,
-  insertRoomMember,
   updateRoomMemberTeam,
   upsertPlayerProfile,
 } from "../lib/supabase-admin";
@@ -49,19 +55,25 @@ type StoredCoordinatorState = {
   matchState: MatchEngineState | null;
 };
 
+type MatchProgressResult = {
+  events: MatchEvent[];
+  roomReopened: boolean;
+};
+
 const STORAGE_KEY = "match-room-state";
+const CHECKPOINT_THROTTLE_MS = 1_000;
 
 /**
- * MatchRoom 现在是真正的房间/对局协调器：
- * - 连接时校验签名 ticket，绑定可信身份
- * - 房间态和对局态都以 DO checkpoint 为主
- * - 倒计时/超时完全由 alarm 推进，不再依赖前端 tick
- * - 只把关键节点持久化到 Supabase，避免回到旧的数据库驱动实时链路
+ * MatchRoom 作为房间级权威协调器，负责三件事：
+ * - 以 DO 内存态驱动房间和对局实时状态
+ * - 用事件作为常规广播主通道，snapshot 只在显式同步时发送
+ * - 只在关键节点强制落盘，其余热状态按节流策略写入 checkpoint
  */
 export class MatchRoom extends DurableObject<Env> {
   private roomState: RoomEngineState | null = null;
   private matchState: MatchEngineState | null = null;
   private sessions = new Map<WebSocket, ConnectionState>();
+  private lastCheckpointAt = 0;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -108,7 +120,15 @@ export class MatchRoom extends DurableObject<Env> {
       return new Response("Room not found", { status: 404 });
     }
 
-    await this.syncMatchClock();
+    const syncResult = await this.syncMatchClock();
+
+    if (syncResult.events.length > 0 || syncResult.roomReopened) {
+      await this.scheduleCheckpoint(syncResult.roomReopened);
+    }
+    this.broadcastMatchEvents(syncResult.events);
+    if (syncResult.roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair) as [DurableWebSocket, DurableWebSocket];
@@ -124,8 +144,7 @@ export class MatchRoom extends DurableObject<Env> {
       nickname: session.nickname,
       roomCode,
     });
-
-    this.broadcastSnapshots();
+    this.sendSnapshotsToSocket(server);
 
     return new Response(null, {
       status: 101,
@@ -181,27 +200,14 @@ export class MatchRoom extends DurableObject<Env> {
       return;
     }
 
-    let shouldContinue = true;
-
-    while (shouldContinue && this.matchState) {
-      const previousPhase = this.matchState.phase;
-      const result = tickMatch(this.matchState, Date.now(), mathRandomSource());
-
-      shouldContinue = result.events.length > 0;
-      this.matchState = result.state;
-
-      if (previousPhase === "countdown" && this.matchState.phase === "active") {
-        await markMatchActive(this.env, this.matchState.id);
-      }
-
-      if (this.matchState.phase === "finished") {
-        await this.finalizeFinishedMatch();
-        shouldContinue = false;
-      }
+    const syncResult = await this.syncMatchClock();
+    if (syncResult.events.length > 0 || syncResult.roomReopened) {
+      await this.scheduleCheckpoint(syncResult.roomReopened);
     }
-
-    await this.persistCheckpoint();
-    this.broadcastSnapshots();
+    this.broadcastMatchEvents(syncResult.events);
+    if (syncResult.roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
   }
 
   private async processCommand(
@@ -235,7 +241,13 @@ export class MatchRoom extends DurableObject<Env> {
       }
 
       if (command.type === "match.tick") {
-        await this.handleTickMatch();
+        await this.handleTickMatch(ws);
+        this.sendCommandResult(ws, command.commandId, true, "已同步");
+        return;
+      }
+
+      if (command.type === "sync.request") {
+        await this.handleSyncRequest(ws);
         this.sendCommandResult(ws, command.commandId, true, "已同步");
         return;
       }
@@ -294,8 +306,14 @@ export class MatchRoom extends DurableObject<Env> {
     session.nickname = command.payload.nickname;
     (ws as DurableWebSocket).serializeAttachment(session);
     this.roomState = nextRoomState;
-    await this.persistCheckpoint();
-    this.broadcastSnapshots();
+    await this.scheduleCheckpoint(true);
+    this.broadcastRoomEvent({
+      type: "room.member_joined",
+      payload: {
+        member: viewer,
+        canStart: nextRoomState.canStart,
+      },
+    });
   }
 
   private async handleSwitchTeam(
@@ -324,13 +342,21 @@ export class MatchRoom extends DurableObject<Env> {
       team,
     });
 
-    this.roomState = applyRoomAction(roomState, {
+    const nextRoomState = applyRoomAction(roomState, {
       type: "switch_team",
       playerId: viewer.playerId,
       team,
     });
-    await this.persistCheckpoint();
-    this.broadcastSnapshots();
+    this.roomState = nextRoomState;
+    await this.scheduleCheckpoint(true);
+    this.broadcastRoomEvent({
+      type: "room.team_switched",
+      payload: {
+        playerId: viewer.playerId,
+        team,
+        canStart: nextRoomState.canStart,
+      },
+    });
   }
 
   private async handleStartMatch(session: ConnectionState): Promise<string> {
@@ -387,9 +413,14 @@ export class MatchRoom extends DurableObject<Env> {
       match,
       members: roomState.members,
     });
-    await this.persistCheckpoint();
+    await this.scheduleCheckpoint(true);
     await this.scheduleNextAlarm();
-    this.broadcastSnapshots();
+    this.broadcastRoomEvent({
+      type: "room.match_started",
+      payload: {
+        matchId: match.id,
+      },
+    });
 
     return match.id;
   }
@@ -405,9 +436,9 @@ export class MatchRoom extends DurableObject<Env> {
       await persistRoomReopened(this.env, roomId);
     }
 
-    await this.persistCheckpoint();
+    await this.scheduleCheckpoint(true);
     await this.ctx.storage.deleteAlarm();
-    this.broadcastSnapshots();
+    this.broadcastRoomEvent(this.buildRoomReopenedEvent(true));
   }
 
   private async handleSubmitAnswer(
@@ -418,7 +449,11 @@ export class MatchRoom extends DurableObject<Env> {
       throw new Error("MATCH_NOT_FOUND");
     }
 
-    await this.driveMatchForward();
+    const preflight = await this.driveMatchForward();
+    this.broadcastMatchEvents(preflight.events);
+    if (preflight.roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
 
     if (!this.matchState) {
       throw new Error("MATCH_NOT_FOUND");
@@ -432,25 +467,47 @@ export class MatchRoom extends DurableObject<Env> {
     });
 
     this.matchState = result.state;
+    const finalized = this.matchState.phase === "finished"
+      ? await this.finalizeFinishedMatch()
+      : false;
+    const roomReopened = preflight.roomReopened || finalized;
 
-    if (this.matchState.phase === "finished") {
-      await this.finalizeFinishedMatch();
-    }
-
-    await this.persistCheckpoint();
+    await this.scheduleCheckpoint(roomReopened);
     await this.scheduleNextAlarm();
-    this.broadcastSnapshots();
+    this.broadcastMatchEvents(result.events);
+    if (roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
 
     return result.result;
   }
 
-  private async handleTickMatch() {
+  private async handleTickMatch(ws: WebSocket) {
     if (!this.matchState) {
       throw new Error("MATCH_NOT_FOUND");
     }
 
-    await this.syncMatchClock();
-    this.broadcastSnapshots();
+    const syncResult = await this.syncMatchClock();
+    if (syncResult.events.length > 0 || syncResult.roomReopened) {
+      await this.scheduleCheckpoint(syncResult.roomReopened);
+    }
+    this.broadcastMatchEvents(syncResult.events);
+    if (syncResult.roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
+    this.sendSnapshotsToSocket(ws);
+  }
+
+  private async handleSyncRequest(ws: WebSocket) {
+    const syncResult = await this.syncMatchClock();
+    if (syncResult.events.length > 0 || syncResult.roomReopened) {
+      await this.scheduleCheckpoint(syncResult.roomReopened);
+    }
+    this.broadcastMatchEvents(syncResult.events);
+    if (syncResult.roomReopened) {
+      this.broadcastRoomEvent(this.buildRoomReopenedEvent(false));
+    }
+    this.sendSnapshotsToSocket(ws);
   }
 
   private async ensureRoomLoaded(roomCode: string, playerId?: string) {
@@ -484,7 +541,7 @@ export class MatchRoom extends DurableObject<Env> {
           protocolSeq: 0,
         }
       : null;
-    await this.persistCheckpoint();
+    await this.scheduleCheckpoint(true);
   }
 
   private requireRoomState() {
@@ -497,33 +554,6 @@ export class MatchRoom extends DurableObject<Env> {
 
   private readSession(ws: WebSocket): ConnectionState | null {
     return this.sessions.get(ws) ?? (ws as DurableWebSocket).deserializeAttachment();
-  }
-
-  private buildRoomSnapshot(session: DemoPlayerSession): CoordinatorRoomSnapshot {
-    const roomState = this.requireRoomState();
-    const viewer = roomState.members.find((member) => member.playerId === session.playerId) ?? null;
-
-    return {
-      room: roomState.room,
-      members: roomState.members,
-      match: this.matchState,
-      viewer,
-      canStart: roomState.canStart,
-      session,
-    };
-  }
-
-  private buildMatchSnapshot(session: DemoPlayerSession): CoordinatorMatchSnapshot {
-    const roomState = this.requireRoomState();
-    const viewer = roomState.members.find((member) => member.playerId === session.playerId) ?? null;
-
-    return {
-      room: roomState.room,
-      members: roomState.members,
-      viewer,
-      session,
-      match: this.matchState,
-    };
   }
 
   private sendCommandResult(
@@ -548,37 +578,79 @@ export class MatchRoom extends DurableObject<Env> {
     ws.send(JSON.stringify(message));
   }
 
-  private broadcastSnapshots() {
+  private sendSnapshotsToSocket(ws: WebSocket) {
     if (!this.roomState) {
       return;
     }
 
+    const session = this.readSession(ws);
+
+    if (!session) {
+      return;
+    }
+
+    for (const message of buildSnapshotMessages({
+      roomState: this.roomState,
+      matchState: this.matchState,
+      session,
+    })) {
+      this.send(ws, message);
+    }
+  }
+
+  private broadcastMatchEvents(events: MatchEvent[]) {
+    if (events.length === 0) {
+      return;
+    }
+
+    const messages = buildMatchEventMessages(events);
+
     for (const socket of this.ctx.getWebSockets()) {
-      const session = this.readSession(socket);
-
-      if (!session) {
-        continue;
-      }
-
-      this.send(socket, {
-        type: "room.snapshot",
-        payload: this.buildRoomSnapshot(session),
-      });
-
-      if (this.matchState) {
-        this.send(socket, {
-          type: "match.snapshot",
-          payload: this.buildMatchSnapshot(session),
-        });
+      for (const message of messages) {
+        this.send(socket, message);
       }
     }
   }
 
-  private async persistCheckpoint() {
+  private broadcastRoomEvent(event: RoomEvent) {
+    const message = buildRoomEventMessage(event);
+
+    for (const socket of this.ctx.getWebSockets()) {
+      this.send(socket, message);
+    }
+  }
+
+  private buildRoomReopenedEvent(clearMatch: boolean): RoomEvent {
+    return {
+      type: "room.reopened",
+      payload: {
+        canStart: this.roomState?.canStart ?? false,
+        clearMatch,
+      },
+    };
+  }
+
+  private async persistCheckpointNow(now: number) {
     await this.ctx.storage.put(STORAGE_KEY, {
       roomState: this.roomState,
       matchState: this.matchState,
     } satisfies StoredCoordinatorState);
+    this.lastCheckpointAt = now;
+  }
+
+  private async scheduleCheckpoint(force = false) {
+    const now = Date.now();
+
+    if (!shouldPersistCheckpoint({
+      lastPersistedAt: this.lastCheckpointAt,
+      now,
+      minIntervalMs: CHECKPOINT_THROTTLE_MS,
+      force,
+    })) {
+      return;
+    }
+
+    await this.persistCheckpointNow(now);
   }
 
   private async scheduleNextAlarm() {
@@ -604,12 +676,17 @@ export class MatchRoom extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(nextAlarm);
   }
 
-  private async driveMatchForward() {
-    if (!this.matchState) {
-      return;
+  private async driveMatchForward(): Promise<MatchProgressResult> {
+    if (!this.matchState || this.matchState.phase === "finished") {
+      return {
+        events: [],
+        roomReopened: false,
+      };
     }
 
     let shouldContinue = true;
+    const events: MatchEvent[] = [];
+    let roomReopened = false;
 
     while (shouldContinue && this.matchState) {
       const previousPhase = this.matchState.phase;
@@ -617,31 +694,40 @@ export class MatchRoom extends DurableObject<Env> {
 
       shouldContinue = result.events.length > 0;
       this.matchState = result.state;
+      events.push(...result.events);
 
       if (previousPhase === "countdown" && this.matchState.phase === "active") {
         await markMatchActive(this.env, this.matchState.id);
       }
 
       if (this.matchState.phase === "finished") {
-        await this.finalizeFinishedMatch();
+        roomReopened = await this.finalizeFinishedMatch();
         shouldContinue = false;
       }
     }
+
+    return {
+      events,
+      roomReopened,
+    };
   }
 
   private async syncMatchClock() {
     if (!this.matchState) {
-      return;
+      return {
+        events: [] as MatchEvent[],
+        roomReopened: false,
+      };
     }
 
-    await this.driveMatchForward();
-    await this.persistCheckpoint();
+    const progress = await this.driveMatchForward();
     await this.scheduleNextAlarm();
+    return progress;
   }
 
   private async finalizeFinishedMatch() {
     if (!this.matchState || !this.roomState?.room.id) {
-      return;
+      return false;
     }
 
     const finishedMatch = this.matchState;
@@ -650,7 +736,7 @@ export class MatchRoom extends DurableObject<Env> {
     const winReason = finishedMatch.winReason;
 
     if (!winnerTeam || !winReason) {
-      return;
+      return false;
     }
 
     this.roomState = applyRoomAction(this.roomState, { type: "reopen_room" });
@@ -671,6 +757,7 @@ export class MatchRoom extends DurableObject<Env> {
     });
 
     this.matchState = finishedMatch;
+    return true;
   }
 }
 

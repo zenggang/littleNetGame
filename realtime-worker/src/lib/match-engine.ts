@@ -130,13 +130,7 @@ export function tickMatch(
     match.phase = "active";
     events.push(
       createProtocolEvent(match, "match.question_opened", {
-        question: {
-          id: match.currentQuestion.key,
-          prompt: match.currentQuestion.prompt,
-          inputSchema: match.currentQuestion.answerKind,
-          damage: match.currentQuestion.damage,
-          deadlineAt: match.questionDeadlineAt,
-        },
+        question: buildProtocolQuestion(match),
       }),
     );
     return { state: match, events };
@@ -184,13 +178,7 @@ export function tickMatch(
   nextQuestion(match, now, random);
   events.push(
     createProtocolEvent(match, "match.question_opened", {
-      question: {
-        id: match.currentQuestion.key,
-        prompt: match.currentQuestion.prompt,
-        inputSchema: match.currentQuestion.answerKind,
-        damage: match.currentQuestion.damage,
-        deadlineAt: match.questionDeadlineAt,
-      },
+      question: buildProtocolQuestion(match),
     }),
   );
 
@@ -286,6 +274,16 @@ export function submitAnswer(
       return {
         state: match,
         events: [
+          createProtocolEvent(match, "match.answer_rejected", {
+            playerId: input.playerId,
+            team: member.team,
+            damage: wrongAnswerDamage,
+            cooldownUntil: match.cooldowns[input.playerId],
+            hp: {
+              red: match.teams.red.hpCurrent,
+              blue: match.teams.blue.hpCurrent,
+            },
+          }),
           createProtocolEvent(match, "match.finished", {
             winner: match.winner ?? outcome.winner,
             reason: "hp_zero",
@@ -297,7 +295,18 @@ export function submitAnswer(
 
     return {
       state: match,
-      events: [],
+      events: [
+        createProtocolEvent(match, "match.answer_rejected", {
+          playerId: input.playerId,
+          team: member.team,
+          damage: wrongAnswerDamage,
+          cooldownUntil: match.cooldowns[input.playerId],
+          hp: {
+            red: match.teams.red.hpCurrent,
+            blue: match.teams.blue.hpCurrent,
+          },
+        }),
+      ],
       result: { ok: false, message: "不对，再想一想" },
     };
   }
@@ -363,13 +372,7 @@ export function submitAnswer(
   nextQuestion(match, now, input.random);
   events.push(
     createProtocolEvent(match, "match.question_opened", {
-      question: {
-        id: match.currentQuestion.key,
-        prompt: match.currentQuestion.prompt,
-        inputSchema: match.currentQuestion.answerKind,
-        damage: match.currentQuestion.damage,
-        deadlineAt: match.questionDeadlineAt,
-      },
+      question: buildProtocolQuestion(match),
     }),
   );
 
@@ -389,6 +392,20 @@ function createRuntimeQuestion(recentPrompts: string[], random: RandomSource) {
   return {
     ...question,
     key: crypto.randomUUID(),
+  };
+}
+
+function buildProtocolQuestion(match: MatchEngineState) {
+  return {
+    id: match.currentQuestion.key,
+    difficulty: match.currentQuestion.difficulty,
+    type: match.currentQuestion.type,
+    prompt: match.currentQuestion.prompt,
+    inputSchema: match.currentQuestion.answerKind,
+    damage: match.currentQuestion.damage,
+    correctAnswer: match.currentQuestion.correctAnswer,
+    meta: match.currentQuestion.meta,
+    deadlineAt: match.questionDeadlineAt,
   };
 }
 

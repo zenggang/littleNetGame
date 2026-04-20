@@ -1,5 +1,7 @@
 # Pure Game Core Rebuild Implementation Plan
 
+> **Status (2026-04-20):** Historical master plan. Large parts of this plan have already landed, and the current realtime sync strategy has moved past the old snapshot-first assumptions. Use `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md` for current-state truth, and use newer focused specs/plans for active follow-up work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Rebuild the current Next.js + Supabase prototype into a mobile-first game shell with a Phaser battle runtime and a Cloudflare Durable Objects coordinator, while preserving Supabase for identity, content persistence, match reports, and recovery.

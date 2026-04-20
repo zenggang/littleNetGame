@@ -35,9 +35,6 @@ export default function BattlePage() {
   const [snapshot, setSnapshot] = useState<Awaited<ReturnType<typeof getMatchSnapshot>> | null>(null);
   const previousMatchRef = useRef<CoordinatorMatchSnapshot["match"] | null>(null);
   const coolingDownRef = useRef(false);
-  const tickMatchRef = useRef<() => Promise<{ ok: boolean; message: string }>>(
-    async () => ({ ok: false, message: "对局未连接" }),
-  );
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -81,10 +78,6 @@ export default function BattlePage() {
       : null,
   });
   const liveSnapshot = matchSession.snapshot ?? snapshot;
-
-  useEffect(() => {
-    tickMatchRef.current = matchSession.tickMatch;
-  }, [matchSession.tickMatch]);
 
   useEffect(() => {
     if (liveSnapshot?.match?.phase !== "finished") {
@@ -138,9 +131,6 @@ export default function BattlePage() {
     ? liveMatch.cooldowns[viewer.playerId] ?? 0
     : 0;
   const isCoolingDown = cooldownUntil > now;
-  const activeQuestionExpired =
-    liveMatch?.phase === "active" &&
-    Math.ceil((Date.parse(liveMatch.questionDeadlineAt) - now) / 1000) <= 0;
   const activeMatchExpired =
     liveMatch?.phase === "active" &&
     Math.ceil((Date.parse(liveMatch.endsAt) - now) / 1000) <= 0;
@@ -159,24 +149,6 @@ export default function BattlePage() {
 
     coolingDownRef.current = isCoolingDown;
   }, [isCoolingDown]);
-
-  useEffect(() => {
-    if (!activeQuestionExpired && !activeMatchExpired) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      void tickMatchRef.current().catch(() => undefined);
-      void loadSnapshot();
-    }, 1_500);
-
-    return () => window.clearInterval(timer);
-  }, [
-    activeMatchExpired,
-    activeQuestionExpired,
-    liveMatch?.currentQuestion.key,
-    loadSnapshot,
-  ]);
 
   if (!hydrated || !snapshot) {
     return (

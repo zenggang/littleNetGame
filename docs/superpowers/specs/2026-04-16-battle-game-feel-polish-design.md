@@ -1,9 +1,25 @@
 # 小小数学战场 Battle 游戏感增强设计文档
 
 - 日期：2026-04-16
-- 状态：已锁定规格，待进入实现
+- 状态：主要交付已落地，当前转为历史 battle 强化规格；残余 polish 请看 `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md`
 - 所属阶段：基于既有核心重构方案的局部 battle 强化规格
 - 适用流程：`Superpowers -> OpenSpec -> Superpowers` 三段式，第 2 段规格锁定结果
+
+## 0. 2026-04-20 状态补充
+
+这份文档对应的 battle 强化方向已经大部分落地：
+
+- `上战场，下操作台`
+- Phaser 主舞台
+- 发箭 / 命中 / 超时 / 收束等关键演出
+- battle 页不再依赖定时 `match.tick + loadSnapshot`
+
+因此，这份文档现在更适合作为：
+
+- battle 强化设计基线
+- 为什么当时这样收口 battle 体验的说明
+
+而不是继续当“待进入实现”的活跃规格。
 
 ---
 

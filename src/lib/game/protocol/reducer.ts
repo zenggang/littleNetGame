@@ -18,6 +18,7 @@ export function reduceMatchEvent(state: MatchState, event: MatchEvent): MatchSta
 
   if (
     event.type === "match.answer_resolved" ||
+    event.type === "match.answer_rejected" ||
     event.type === "match.question_timed_out"
   ) {
     return {

@@ -4,12 +4,47 @@ import type {
   DemoPlayerSession,
   DemoRoom,
 } from "@/lib/demo/store";
+import type { MatchEvent } from "@/lib/game/protocol/events";
 import type { TeamName } from "@/lib/game/types";
+
+export type CoordinatorLiveMatch = DemoMatch & {
+  protocolSeq?: number;
+};
+
+export type RoomEvent =
+  | {
+      type: "room.member_joined";
+      payload: {
+        member: DemoMember;
+        canStart: boolean;
+      };
+    }
+  | {
+      type: "room.team_switched";
+      payload: {
+        playerId: string;
+        team: TeamName;
+        canStart: boolean;
+      };
+    }
+  | {
+      type: "room.match_started";
+      payload: {
+        matchId: string;
+      };
+    }
+  | {
+      type: "room.reopened";
+      payload: {
+        canStart: boolean;
+        clearMatch: boolean;
+      };
+    };
 
 export type CoordinatorRoomSnapshot = {
   room: DemoRoom | null;
   members: DemoMember[];
-  match: DemoMatch | null;
+  match: CoordinatorLiveMatch | null;
   viewer: DemoMember | null;
   canStart: boolean;
   session: DemoPlayerSession;
@@ -20,7 +55,7 @@ export type CoordinatorMatchSnapshot = {
   members: DemoMember[];
   viewer: DemoMember | null;
   session: DemoPlayerSession;
-  match: DemoMatch | null;
+  match: CoordinatorLiveMatch | null;
 };
 
 export type CoordinatorCommand =
@@ -60,6 +95,13 @@ export type CoordinatorCommand =
   | {
       type: "match.tick";
       commandId: string;
+    }
+  | {
+      type: "sync.request";
+      commandId: string;
+      payload: {
+        reason: "seq_gap" | "manual" | "match_missing";
+      };
     };
 
 export type CoordinatorMessage =
@@ -70,6 +112,14 @@ export type CoordinatorMessage =
   | {
       type: "match.snapshot";
       payload: CoordinatorMatchSnapshot;
+    }
+  | {
+      type: "room.event";
+      payload: RoomEvent;
+    }
+  | {
+      type: "match.event";
+      payload: MatchEvent;
     }
   | {
       type: "command.result";

@@ -311,6 +311,115 @@ describe("useRoomSession", () => {
     expect(result.current.snapshot?.canStart).toBe(false);
   });
 
+  it("applies room events without waiting for a fresh snapshot", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    const initialSnapshot = {
+      room: {
+        id: "room-1",
+        code: "ABCD",
+        gradeLabel: "小学二年级",
+        capacity: 2 as const,
+        hostPlayerId: "player-1",
+        status: "open" as const,
+        activeMatchId: null,
+        createdAt: "2026-04-16T10:00:00.000Z",
+      },
+      members: [
+        {
+          playerId: "player-1",
+          nickname: "阿杰",
+          team: "red" as const,
+          joinedAt: "2026-04-16T10:00:00.000Z",
+        },
+      ],
+      match: null,
+      viewer: {
+        playerId: "player-1",
+        nickname: "阿杰",
+        team: "red" as const,
+        joinedAt: "2026-04-16T10:00:00.000Z",
+      },
+      canStart: false,
+      session: {
+        playerId: "player-1",
+        nickname: "阿杰",
+      },
+    };
+
+    const { result } = renderHook(() =>
+      useRoomSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+        initialSnapshot,
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        type: "room.event",
+        payload: {
+          type: "room.member_joined",
+          payload: {
+            member: {
+              playerId: "player-2",
+              nickname: "小蓝",
+              team: "blue",
+              joinedAt: "2026-04-16T10:00:05.000Z",
+            },
+            canStart: true,
+          },
+        },
+      });
+      socket.emitMessage({
+        type: "room.event",
+        payload: {
+          type: "room.match_started",
+          payload: {
+            matchId: "match-1",
+          },
+        },
+      });
+    });
+
+    expect(result.current.snapshot?.members).toHaveLength(2);
+    expect(result.current.snapshot?.members[1]?.nickname).toBe("小蓝");
+    expect(result.current.snapshot?.canStart).toBe(false);
+    expect(result.current.snapshot?.room?.status).toBe("locked");
+    expect(result.current.snapshot?.room?.activeMatchId).toBe("match-1");
+  });
+
+  it("requests a periodic sync while the room page stays visible", async () => {
+    const socket = new FakeSocket();
+
+    openCoordinatorSocket.mockResolvedValue(socket as unknown as WebSocket);
+
+    renderHook(() =>
+      useRoomSession({
+        roomCode: "ABCD",
+        playerId: "player-1",
+        nickname: "阿杰",
+      }),
+    );
+
+    await flushAsyncWork();
+
+    act(() => {
+      socket.emitOpen();
+      vi.advanceTimersByTime(2_100);
+    });
+
+    expect(socket.send).toHaveBeenCalledWith(
+      expect.stringContaining("\"type\":\"sync.request\""),
+    );
+  });
+
   it("surfaces the coordinator bootstrap error when the room socket never connects", async () => {
     openCoordinatorSocket.mockRejectedValue(
       new Error("COORDINATOR_NOT_READY"),

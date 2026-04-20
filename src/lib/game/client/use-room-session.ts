@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { openCoordinatorSocket } from "@/lib/game/client/coordinator-client";
+import { applyRoomEventToRoomSnapshot } from "@/lib/game/protocol/apply-coordinator-events";
 import {
   getRoomSnapshot,
   joinRoom as joinDemoRoom,
@@ -111,6 +112,7 @@ export function useRoomSession(input: {
 
     const openRoomSocket = createRoomSocketFactory(openCoordinatorSocket);
     let disposed = false;
+    let syncTimer: number | null = null;
 
     const rejectPending = (reason: string) => {
       pendingRef.current.forEach((pending) => {
@@ -130,11 +132,32 @@ export function useRoomSession(input: {
       }, 600);
     };
 
+    const requestSync = () => {
+      const socket = socketRef.current;
+
+      if (!socket || socket.readyState !== WebSocket.OPEN || document.hidden) {
+        return;
+      }
+
+      socket.send(JSON.stringify({
+        type: "sync.request",
+        commandId: crypto.randomUUID(),
+        payload: {
+          reason: "manual",
+        },
+      }));
+    };
+
     const handleMessage = (event: MessageEvent<string>) => {
       const message = JSON.parse(event.data) as CoordinatorMessage;
 
       if (message.type === "room.snapshot") {
         setSnapshot(message.payload);
+        return;
+      }
+
+      if (message.type === "room.event") {
+        setSnapshot((current) => applyRoomEventToRoomSnapshot(current, message.payload));
         return;
       }
 
@@ -164,6 +187,7 @@ export function useRoomSession(input: {
         socket.addEventListener("open", () => {
           setConnected(true);
           setConnectionError("");
+          requestSync();
         }, { once: true });
         socket.addEventListener("message", handleMessage);
         socket.addEventListener("close", () => {
@@ -191,6 +215,10 @@ export function useRoomSession(input: {
 
     void connect();
 
+    syncTimer = window.setInterval(() => {
+      requestSync();
+    }, 2_000);
+
     return () => {
       disposed = true;
       setConnected(false);
@@ -199,6 +227,11 @@ export function useRoomSession(input: {
       if (reconnectTimerRef.current !== null) {
         window.clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
+      }
+
+      if (syncTimer !== null) {
+        window.clearInterval(syncTimer);
+        syncTimer = null;
       }
 
       socketRef.current?.close();

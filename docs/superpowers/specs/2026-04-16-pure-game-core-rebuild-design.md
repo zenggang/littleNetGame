@@ -1,9 +1,33 @@
 # 小小数学战场纯游戏化核心体验重建设计报告
 
 - 日期：2026-04-16
-- 状态：已完成设计收敛，待最终审阅
+- 状态：已归档，作为历史设计基线保留；当前状态请看 `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md`
 - 适用阶段：核心体验重构方案设计
 - 范围类型：产品体验 + 技术基座 + 里程碑实施方案
+
+## 0. 2026-04-20 状态校正
+
+这份文档记录的是 2026-04-16 的设计判断，不再代表当前仓库的真实技术现状。
+
+以下内容已经过时：
+
+- `Supabase Realtime + RPC Snapshot` 作为主实时链路
+- 前端持续推进对局 tick
+- “当前仍是轻实时网页”的现状判断
+
+当前真实实现已经进入：
+
+- `Next.js + Phaser + Supabase + Cloudflare Durable Objects coordinator`
+- `event-first, snapshot-on-demand` 同步主链路
+- 大厅 -> 房间 -> 对战 -> 结算 -> 再来一局 主链路已跑通
+
+因此，阅读这份文档时应把它视为：
+
+- 历史设计基线
+- 为什么当时要重构的解释
+- 阶段性目标来源
+
+不要再把它当成“当前事实说明”。当前真实状态与下一阶段里程，请以 `docs/superpowers/specs/2026-04-20-game-core-current-state-and-next-milestones.md` 为准。
 
 ## 1. 项目背景与目标重定义
 

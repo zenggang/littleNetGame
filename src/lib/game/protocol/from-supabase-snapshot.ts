@@ -2,6 +2,7 @@ import type { MatchState } from "@/lib/game/protocol/state";
 
 export function matchStateFromSnapshot(snapshot: {
   match: {
+    protocolSeq?: number;
     phase: "countdown" | "active" | "finished";
     currentQuestion: {
       key: string;
@@ -18,7 +19,7 @@ export function matchStateFromSnapshot(snapshot: {
   };
 }): MatchState {
   return {
-    lastSeq: 0,
+    lastSeq: snapshot.match.protocolSeq ?? 0,
     phase: snapshot.match.phase,
     currentQuestion: {
       id: snapshot.match.currentQuestion.key,
