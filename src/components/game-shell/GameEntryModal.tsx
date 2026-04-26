@@ -45,34 +45,43 @@ export function GameEntryModal({
     <div className="gameModalBackdrop">
       <section aria-label={title} className="gameModalPanel" role="dialog">
         <header className="gameModalHeader">
-          <h2>{title}</h2>
+          <div>
+            <p>{title === "创建游戏" ? "开局面板" : "空降战场"}</p>
+            <h2>{title}</h2>
+          </div>
           <button disabled={submitting} onClick={onClose} type="button">
             关闭
           </button>
         </header>
         {title === "创建游戏" ? (
-          <div className="gameCapacityGrid" role="group" aria-label="房间容量">
-            {/* 建房仍沿用旧首页的 2/3/4/6 人容量，只是把选择入口收进了弹窗。 */}
-            {ROOM_CAPACITY_OPTIONS.map((value) => (
-              <button
-                key={value}
-                aria-pressed={capacity === value}
-                className="gameCapacityButton"
-                disabled={submitting}
-                onClick={() => onCapacityChange(value)}
-                type="button"
-              >
-                {value} 人房
-              </button>
-            ))}
-          </div>
+          <>
+            <p className="gameModalBrief">选择战场规模，建好后立刻进入红蓝编队。</p>
+            <div className="gameCapacityGrid" role="group" aria-label="房间容量">
+              {/* 建房仍沿用旧首页的 2/3/4/6 人容量，只是把选择入口收进了开局面板。 */}
+              {ROOM_CAPACITY_OPTIONS.map((value) => (
+                <button
+                  key={value}
+                  aria-pressed={capacity === value}
+                  className="gameCapacityButton"
+                  disabled={submitting}
+                  onClick={() => onCapacityChange(value)}
+                  type="button"
+                >
+                  {value} 人房
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
-          <input
-            disabled={submitting}
-            onChange={(event) => onRoomCodeChange(event.target.value.toUpperCase())}
-            placeholder="输入 4 位房间码"
-            value={roomCode}
-          />
+          <label className="gameModalCodePanel">
+            <span>房间码</span>
+            <input
+              disabled={submitting}
+              onChange={(event) => onRoomCodeChange(event.target.value.toUpperCase())}
+              placeholder="输入 4 位房间码"
+              value={roomCode}
+            />
+          </label>
         )}
         {message ? (
           <p aria-live="assertive" className="gameModalMessage" role="alert">

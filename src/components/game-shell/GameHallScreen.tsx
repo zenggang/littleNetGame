@@ -1,8 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useState } from "react";
+import Image from "next/image";
 
 import { GameEntryModal } from "@/components/game-shell/GameEntryModal";
+import { getAvailableGameAsset } from "@/lib/game/assets/asset-manifest";
 
 type RoomCapacity = 2 | 3 | 4 | 6;
 
@@ -17,6 +20,13 @@ type Props = {
   onRoomCodeChange?: (value: string) => void;
   onCreate: () => void;
   onJoin: () => void;
+};
+
+const HALL_SCENE = getAvailableGameAsset("scene.home.main");
+const HALL_LOGO = getAvailableGameAsset("ui.logo.main");
+
+type GameHallStyle = CSSProperties & {
+  "--game-hall-bg": string;
 };
 
 export function GameHallScreen({
@@ -34,20 +44,34 @@ export function GameHallScreen({
   const [modal, setModal] = useState<null | "create" | "join">(null);
 
   return (
-    <section className="gameHallShell">
+    <section
+      className="gameHallShell"
+      data-scene-key={HALL_SCENE.key}
+      style={{
+        "--game-hall-bg": `url("${HALL_SCENE.path}")`,
+      } as GameHallStyle}
+    >
       <div className="gameHallHero">
-        <p className="gameHallTag">开房、拉人、列阵、开打</p>
-        <h1>小小数学战场</h1>
-        <input
-          onChange={(event) => onNicknameChange(event.target.value)}
-          placeholder="输入一个短昵称"
-          value={nickname}
+        <div className="gameHallCoverArt" aria-hidden="true" />
+        <Image
+          alt=""
+          aria-hidden="true"
+          className="gameHallLogo"
+          height={116}
+          priority
+          src={HALL_LOGO.path}
+          width={314}
         />
+        <div className="gameHallTitleBlock">
+          <h1>小小数学战场</h1>
+          <p>开房 · 拉人 · 列阵 · 开打</p>
+        </div>
       </div>
 
       <div className="gameHallActions">
         <button
-          className="primaryButton"
+          aria-label="创建游戏"
+          className="gamePaintButton gamePaintButtonRed gameHallCreateButton"
           disabled={submitting}
           onClick={() => setModal("create")}
           type="button"
@@ -55,7 +79,8 @@ export function GameHallScreen({
           创建游戏
         </button>
         <button
-          className="secondaryButton"
+          aria-label="加入游戏"
+          className="gamePaintButton gamePaintButtonBlue gameHallJoinButton"
           disabled={submitting}
           onClick={() => setModal("join")}
           type="button"
@@ -63,6 +88,15 @@ export function GameHallScreen({
           加入游戏
         </button>
       </div>
+
+      <label className="gameHallCommander">
+        <span>指挥官</span>
+        <input
+          onChange={(event) => onNicknameChange(event.target.value)}
+          placeholder="输入一个短昵称"
+          value={nickname}
+        />
+      </label>
 
       {message ? (
         <p aria-live="polite" className="gameHallMessage" role="status">

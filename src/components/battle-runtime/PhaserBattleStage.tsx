@@ -43,7 +43,7 @@ export function PhaserBattleStage({
       }
 
       const initialWidth = Math.max(rootRef.current.clientWidth, 320);
-      const initialHeight = Math.max(rootRef.current.clientHeight, 460);
+      const initialHeight = Math.max(rootRef.current.clientHeight, 220);
       const scene = new battleSceneModule.BattleScene(initialStateRef.current);
       sceneRef.current = scene;
 
@@ -52,6 +52,7 @@ export function PhaserBattleStage({
         width: initialWidth,
         height: initialHeight,
         backgroundColor: "transparent",
+        transparent: true,
         parent: rootRef.current,
         scene,
         render: {
@@ -76,7 +77,7 @@ export function PhaserBattleStage({
         }
 
         const nextWidth = Math.max(Math.round(entry.contentRect.width), 320);
-        const nextHeight = Math.max(Math.round(entry.contentRect.height), 460);
+        const nextHeight = Math.max(Math.round(entry.contentRect.height), 220);
 
         game.scale.resize(nextWidth, nextHeight);
         scene.resizeStage(nextWidth, nextHeight);

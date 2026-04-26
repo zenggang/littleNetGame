@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -8,6 +9,7 @@ import {
   getMatchSnapshot,
   toUserMessage,
 } from "@/lib/supabase/game-store";
+import { getAvailableGameAsset } from "@/lib/game/assets/asset-manifest";
 import { readCachedMatchReport } from "@/lib/game/result/local-report-cache";
 import { buildMatchReport } from "@/lib/game/result/match-report";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -17,6 +19,13 @@ export const dynamic = "force-dynamic";
 
 type ResultReport = ReturnType<typeof buildMatchReport> & {
   roomCode: string;
+};
+
+// 结算页背景必须跟随资源 manifest，避免页面继续引用旧 result-bg 或绕过 scene.score.report 契约。
+const SCORE_REPORT_SCENE = getAvailableGameAsset("scene.score.report");
+
+type ScoreReportStyle = CSSProperties & {
+  "--score-report-bg": string;
 };
 
 export default function ResultPage() {
@@ -103,7 +112,13 @@ export default function ResultPage() {
 
   if (!hydrated || !report) {
     return (
-      <main className={styles.page}>
+      <main
+        className={styles.page}
+        data-scene-key={SCORE_REPORT_SCENE.key}
+        style={{
+          "--score-report-bg": `url("${SCORE_REPORT_SCENE.path}")`,
+        } as ScoreReportStyle}
+      >
         <section className={styles.card}>
           <h1>{error || "结算加载中"}</h1>
         </section>
@@ -112,45 +127,79 @@ export default function ResultPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card}>
-        <p className={styles.kicker}>Winner</p>
-        <h1>{report.headline}</h1>
-        <p className={styles.summary}>{report.summary}</p>
-
-        <div className={styles.scoreGrid}>
-          <article className={styles.scoreCard}>
-            <strong>红队血量</strong>
-            <span>{report.stats.redHp}</span>
-          </article>
-          <article className={styles.scoreCard}>
-            <strong>蓝队血量</strong>
-            <span>{report.stats.blueHp}</span>
-          </article>
-          <article className={styles.scoreCard}>
-            <strong>红队答对</strong>
-            <span>{report.stats.redCorrect}</span>
-          </article>
-          <article className={styles.scoreCard}>
-            <strong>蓝队答对</strong>
-            <span>{report.stats.blueCorrect}</span>
-          </article>
+    <main
+      className={styles.page}
+      data-scene-key={SCORE_REPORT_SCENE.key}
+      style={{
+        "--score-report-bg": `url("${SCORE_REPORT_SCENE.path}")`,
+      } as ScoreReportStyle}
+    >
+      <section className={styles.reportShell}>
+        <div className={styles.hero}>
+          <p className={styles.kicker}>Battle Report</p>
+          <h1>{report.headline}</h1>
+          <p className={styles.summary}>{report.summary}</p>
+          <div className={styles.heroStats} aria-label="本局战报摘要">
+            <span>{report.winReason.label}</span>
+            <span>{report.stats.durationLabel}</span>
+            <span>{report.roomCode}</span>
+          </div>
         </div>
 
-        {report.timeline.length > 0 ? (
-          <section className={styles.scoreGrid}>
-            {report.timeline.map((item, index) => (
-              <article className={styles.scoreCard} key={`${item.createdAt}-${index}`}>
-                <strong>{item.label}</strong>
-                <span>{item.text}</span>
-              </article>
-            ))}
-          </section>
-        ) : null}
+        <section className={styles.outcomeGrid} aria-label="胜负结果">
+          <article className={`${styles.teamPanel} ${styles[report.winner.tone]}`}>
+            <span className={styles.panelLabel}>胜方</span>
+            <strong>{report.winner.label}</strong>
+            <p>{report.winReason.text}</p>
+          </article>
+          <article className={`${styles.teamPanel} ${styles[report.loser.tone]}`}>
+            <span className={styles.panelLabel}>败方</span>
+            <strong>{report.loser.label}</strong>
+            <p>复盘关键题目，下一局把节奏抢回来。</p>
+          </article>
+        </section>
 
-        <div className={styles.actions}>
+        <section className={styles.keySummary} aria-label="关键战况">
+          <article className={styles.featureCard}>
+            <span className={styles.panelLabel}>胜因</span>
+            <strong>{report.winReason.label}</strong>
+            <p>{report.winReason.text}</p>
+          </article>
+          <article className={styles.featureCard}>
+            <span className={styles.panelLabel}>MVP</span>
+            <strong>{report.mvp.label}</strong>
+            <p>{report.mvp.text}</p>
+          </article>
+          <article className={styles.featureCard}>
+            <span className={styles.panelLabel}>关键一击</span>
+            <strong>{report.keyHit?.label ?? "暂无命中"}</strong>
+            <p>{report.keyHit?.text ?? "本局没有可派生的命中事件，胜负由血量与时间结算。"}</p>
+            {report.keyHit ? <em>{report.keyHit.damage} 点伤害</em> : null}
+          </article>
+        </section>
+
+        <section className={styles.scoreBoard} aria-label="战斗数据">
+          <div>
+            <span>红队血量</span>
+            <strong>{report.stats.redHp}</strong>
+          </div>
+          <div>
+            <span>蓝队血量</span>
+            <strong>{report.stats.blueHp}</strong>
+          </div>
+          <div>
+            <span>红队答对</span>
+            <strong>{report.stats.redCorrect}</strong>
+          </div>
+          <div>
+            <span>蓝队答对</span>
+            <strong>{report.stats.blueCorrect}</strong>
+          </div>
+        </section>
+
+        <div className={styles.actions} aria-label="结算操作">
           <button
-            className="primaryButton"
+            className={`${styles.rematchButton} gamePaintButton gamePaintButtonRed`}
             onClick={() => {
               router.push(`/room/${report.roomCode}`);
             }}
@@ -158,7 +207,7 @@ export default function ResultPage() {
           >
             再来一局
           </button>
-          <button className="ghostButton" onClick={() => router.push("/")} type="button">
+          <button className={styles.lobbyButton} onClick={() => router.push("/")} type="button">
             返回大厅
           </button>
         </div>
@@ -174,6 +223,8 @@ function normalizeEventLog(value: unknown[]) {
     type?: string;
     text?: string;
     createdAt?: string;
+    team?: "red" | "blue";
+    targetTeam?: "red" | "blue";
     damage?: number;
   } => typeof item === "object" && item !== null);
 }

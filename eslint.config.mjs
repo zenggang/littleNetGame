@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    // Local agent worktrees are separate checkouts; linting this repository should not scan their generated output.
+    ".worktrees/**",
     "next-env.d.ts",
   ]),
 ]);

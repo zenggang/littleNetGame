@@ -54,14 +54,19 @@ describe("buildBattleViewModel", () => {
       error: "",
     });
 
-    expect(viewModel.topBarLabel).toBe("红 100 / 蓝 90");
+    expect(viewModel.topBarLabel).toBe("红 2800 / 蓝 2520");
     expect(viewModel.topBarTimerLabel).toBe("总 59 秒");
     expect(viewModel.topBarPhaseLabel).toBe("抢答开火");
+    expect(viewModel.redHpLabel).toBe("2800 / 2800");
+    expect(viewModel.blueHpLabel).toBe("2520 / 2800");
     expect(viewModel.questionCard?.prompt).toBe("27 + 16 = ?");
     expect(viewModel.questionCard?.secondsLeft).toBe(4);
-    expect(viewModel.questionCard?.hint).toBe("抢在对面前面答出来");
+    expect(viewModel.questionCard?.deckLabel).toBe("当前弹药题");
+    expect(viewModel.questionCard?.damageLabel).toBe("箭矢威力 10");
+    expect(viewModel.questionCard?.secondsLeftLabel).toBe("装填窗口 4s");
+    expect(viewModel.questionCard?.hint).toBe("解出答案，把数字箭矢打进对面护盾");
     expect(viewModel.questionCard?.submitLabel).toBe("发射箭矢");
-    expect(viewModel.footerMessage).toBe("保持专注，抢在别人前面答出来。");
+    expect(viewModel.footerMessage).toBe("保持专注，把这一发数字箭矢装好。");
   });
 
   it("surfaces the viewer team label", () => {
@@ -134,7 +139,7 @@ describe("buildBattleViewModel", () => {
       targetTeam: "blue",
       damage: 10,
     });
-    expect(viewModel.stageBannerLabel).toBe("红队命中");
+    expect(viewModel.stageBannerLabel).toBe("红队数字箭矢命中");
   });
 
   it("builds a blue-to-red hit cue from the latest correct-answer event", () => {
@@ -270,8 +275,8 @@ describe("buildBattleViewModel", () => {
       redDamage: 2,
       blueDamage: 2,
     });
-    expect(viewModel.questionCard?.hint).toBe("超时会让双方一起掉血");
-    expect(viewModel.stageBannerLabel).toBe("超时惩罚");
+    expect(viewModel.questionCard?.hint).toBe("弹药过载，双方护盾同时受损");
+    expect(viewModel.stageBannerLabel).toBe("弹药过载");
   });
 
   it("builds a wrong-answer cue when one camp loses hp without changing question", () => {
@@ -329,7 +334,7 @@ describe("buildBattleViewModel", () => {
       team: "red",
       damage: 4,
     });
-    expect(viewModel.stageBannerLabel).toBe("红队失手");
-    expect(viewModel.footerMessage).toBe("答错受伤，装填结束后再抢。");
+    expect(viewModel.stageBannerLabel).toBe("红队装填失误");
+    expect(viewModel.footerMessage).toBe("装填失误产生反噬，冷却结束后再抢。");
   });
 });

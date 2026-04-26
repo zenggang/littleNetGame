@@ -4,7 +4,6 @@ import type { BattleStageCue } from "@/components/battle-runtime/build-battle-vi
 import {
   BATTLE_STAGE_ASSET_KEYS,
   BATTLE_STAGE_ASSET_PATHS,
-  getCampAssetLayout,
   getCampBounds as getStageCampBounds,
 } from "@/components/battle-runtime/scenes/battle-stage-assets";
 import type { MatchState } from "@/lib/game/protocol/state";
@@ -39,9 +38,7 @@ export class BattleScene extends Phaser.Scene {
   private matchState: MatchState;
   private ready = false;
   private baseLayer?: Phaser.GameObjects.Graphics;
-  private assetLayer?: Phaser.GameObjects.Container;
   private overlayLayer?: Phaser.GameObjects.Container;
-  private campSprites: Phaser.GameObjects.Image[] = [];
   private labels: Phaser.GameObjects.Text[] = [];
   private viewport = { width: 390, height: 560 };
   private lastCueId: string | null = null;
@@ -56,21 +53,22 @@ export class BattleScene extends Phaser.Scene {
    * 这样 BattleScene 只依赖稳定 key，不需要知道 public 目录里的真实文件名细节。
    */
   preload() {
-    this.load.image(BATTLE_STAGE_ASSET_KEYS.red.base, BATTLE_STAGE_ASSET_PATHS.red.base);
-    this.load.image(BATTLE_STAGE_ASSET_KEYS.blue.base, BATTLE_STAGE_ASSET_PATHS.blue.base);
-    this.load.image(BATTLE_STAGE_ASSET_KEYS.red.turret, BATTLE_STAGE_ASSET_PATHS.red.turret);
-    this.load.image(BATTLE_STAGE_ASSET_KEYS.blue.turret, BATTLE_STAGE_ASSET_PATHS.blue.turret);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.red.arrow, BATTLE_STAGE_ASSET_PATHS.red.arrow);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.blue.arrow, BATTLE_STAGE_ASSET_PATHS.blue.arrow);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.shield, BATTLE_STAGE_ASSET_PATHS.shield);
+    this.load.image(BATTLE_STAGE_ASSET_KEYS.burst, BATTLE_STAGE_ASSET_PATHS.burst);
   }
 
   create() {
     this.baseLayer = this.add.graphics();
-    this.assetLayer = this.add.container(0, 0);
     this.overlayLayer = this.add.container(0, 0);
     this.viewport = {
       width: this.scale.width || this.viewport.width,
       height: this.scale.height || this.viewport.height,
     };
     this.ready = true;
+    this.baseLayer.setDepth(1);
+    this.overlayLayer.setDepth(3);
     this.renderState();
   }
 
@@ -116,144 +114,42 @@ export class BattleScene extends Phaser.Scene {
     const rightCamp = this.getCampBounds("blue");
 
     base.clear();
-    this.clearCampSprites();
     this.clearLabels();
 
-    // 顶部天空到底部地面的渐变，保持“玩具战场”而不是普通网页卡片的第一眼观感。
-    base.fillGradientStyle(0x99d7ff, 0xcff1ff, 0xf6c978, 0xc77b35, 1);
+    // battle_bg.png 已经承载静态战场、基地和控制台。
+    // Phaser 只叠加轻量状态层和一次性战斗演出，避免重复静态美术导致发虚。
+    base.fillStyle(0xfff4d8, 0.04);
     base.fillRect(0, 0, width, height);
 
-    base.fillStyle(0xffffff, 0.18);
-    base.fillEllipse(width * 0.5, height * 0.18, width * 0.38, height * 0.15);
-    base.fillStyle(0xfff6d8, 0.28);
-    base.fillEllipse(width * 0.5, height * 0.54, width * 0.18, width * 0.18);
-
-    base.fillStyle(0xf0d3a2, 0.92);
-    base.fillRoundedRect(width * 0.18, height * 0.5, width * 0.64, height * 0.1, 28);
-    base.fillStyle(0xd9a65c, 0.46);
-    base.fillRoundedRect(width * 0.24, height * 0.52, width * 0.52, height * 0.028, 18);
-
-    this.drawCamp("red", leftCamp);
-    this.drawCamp("blue", rightCamp);
-    this.drawCenterMedallion(width, height);
+    this.drawCampStateAccent("red", leftCamp);
+    this.drawCampStateAccent("blue", rightCamp);
     this.drawPhaseAccent(width, height);
   }
 
-  private drawCamp(team: TeamName, bounds: ReturnType<typeof getStageCampBounds>) {
+  private drawCampStateAccent(team: TeamName, bounds: ReturnType<typeof getStageCampBounds>) {
     if (!this.baseLayer) {
       return;
     }
 
-    const layout = getCampAssetLayout(this.viewport, team);
     const palette = CAMP_PALETTES[team];
-    const hp = this.matchState.teams[team];
     const isWinner = this.matchState.phase === "finished" && this.matchState.winner === team;
     const isLoser =
       this.matchState.phase === "finished" &&
       this.matchState.winner !== null &&
       this.matchState.winner !== team;
     const base = this.baseLayer;
-    const mainY = bounds.y + bounds.height * 0.24;
-    const mainHeight = bounds.height * 0.58;
-    const bannerY = mainY - bounds.height * 0.18;
-    const hpRatio = Math.max(0, Math.min(1, hp.hpCurrent / hp.hpMax));
-    const hpBarWidth = bounds.width * 0.74;
-    const hpBarX = bounds.x + bounds.width * 0.13;
-    const hpBarY = bounds.y + bounds.height * 0.68;
 
+    // battle_bg.png 已经包含基地、炮塔、营地文字和战场 VS 构图。
+    // 这里仅在终局时叠加胜负光效，避免 Phaser 状态层重复绘制静态美术。
     if (isWinner) {
       base.fillStyle(palette.glow, 0.18);
       base.fillEllipse(bounds.centerX, bounds.centerY, bounds.width * 1.18, bounds.height * 1.08);
     }
 
-    base.fillStyle(0x2f1e14, 0.12);
-    base.fillRoundedRect(bounds.x + 6, bounds.y + 12, bounds.width, bounds.height, 28);
-
-    /**
-     * 正式 runtime 资产已经承担了基地和炮塔主体。
-     * 这里保留简化后的阵地底板和 HP 条，让场景继续有“站位感”，但不再和 PNG 细节打架。
-     */
-    base.fillStyle(0xf8f0de, 0.72);
-    base.fillRoundedRect(bounds.x, mainY, bounds.width, mainHeight, 28);
-    base.lineStyle(4, palette.frame, 0.24);
-    base.strokeRoundedRect(bounds.x, mainY, bounds.width, mainHeight, 28);
-
-    base.fillStyle(palette.banner, 1);
-    if (team === "red") {
-      base.fillTriangle(
-        bounds.x + bounds.width * 0.18,
-        bannerY - 8,
-        bounds.x + bounds.width * 0.18 + 26,
-        bannerY + 4,
-        bounds.x + bounds.width * 0.18,
-        bannerY + 18,
-      );
-    } else {
-      base.fillTriangle(
-        bounds.right - bounds.width * 0.18,
-        bannerY - 8,
-        bounds.right - bounds.width * 0.18 - 26,
-        bannerY + 4,
-        bounds.right - bounds.width * 0.18,
-        bannerY + 18,
-      );
-    }
-
-    const baseSprite = this.add.image(layout.base.x, layout.base.y, layout.base.key);
-    this.fitSpriteIntoBox(baseSprite, layout.base.displayWidth, layout.base.displayHeight);
-
-    const turretSprite = this.add.image(layout.turret.x, layout.turret.y, layout.turret.key);
-    this.fitSpriteIntoBox(turretSprite, layout.turret.displayWidth, layout.turret.displayHeight);
-    turretSprite.setFlipX(team === "blue");
-
-    this.assetLayer?.add([baseSprite, turretSprite]);
-    this.campSprites.push(baseSprite, turretSprite);
-
-    base.fillStyle(palette.frame, 0.82);
-    base.fillRoundedRect(bounds.x + bounds.width * 0.14, bounds.y + bounds.height * 0.6, bounds.width * 0.72, bounds.height * 0.06, 16);
-    base.fillStyle(0x2a231d, 0.18);
-    base.fillRoundedRect(hpBarX, hpBarY, hpBarWidth, 12, 6);
-    base.fillStyle(palette.frame, 1);
-    base.fillRoundedRect(hpBarX, hpBarY, hpBarWidth * hpRatio, 12, 6);
-
     if (isLoser) {
       base.fillStyle(0x1a1210, 0.18);
-      base.fillRoundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 28);
+      base.fillRoundedRect(bounds.x, bounds.y + bounds.height * 0.12, bounds.width, bounds.height * 0.78, 28);
     }
-
-    this.addLabel(bounds.centerX, bounds.y + bounds.height * 0.14, team === "red" ? "红队营地" : "蓝队营地", {
-      color: palette.text,
-      fontSize: `${Math.round(this.viewport.width * 0.05)}px`,
-      align: "center",
-    }).setOrigin(0.5);
-
-    this.addLabel(bounds.centerX, bounds.y + bounds.height * 0.28, `${hp.hpCurrent} / ${hp.hpMax}`, {
-      color: palette.text,
-      fontSize: `${Math.round(this.viewport.width * 0.066)}px`,
-      align: "center",
-      fontStyle: "900",
-    }).setOrigin(0.5);
-  }
-
-  private drawCenterMedallion(width: number, height: number) {
-    if (!this.baseLayer) {
-      return;
-    }
-
-    const centerX = width * 0.5;
-    const centerY = height * 0.48;
-
-    this.baseLayer.fillStyle(0xfff7de, 0.94);
-    this.baseLayer.fillCircle(centerX, centerY, width * 0.08);
-    this.baseLayer.lineStyle(6, 0xd99a45, 0.55);
-    this.baseLayer.strokeCircle(centerX, centerY, width * 0.08);
-
-    this.addLabel(centerX, centerY, "VS", {
-      color: "#7b4524",
-      fontSize: `${Math.round(width * 0.052)}px`,
-      fontStyle: "900",
-      align: "center",
-    }).setOrigin(0.5);
   }
 
   private drawPhaseAccent(width: number, height: number) {
@@ -294,7 +190,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     if (cue.kind === "question-opened") {
-      this.spawnCenterBanner("新题装填", 0xfef4d5, "#6d4a22");
+      this.spawnCenterBanner("弹药装填完成", 0xfef4d5, "#6d4a22");
       return;
     }
 
@@ -320,15 +216,28 @@ export class BattleScene extends Phaser.Scene {
     const start = this.getProjectileOrigin(cue.attackerTeam);
     const end = this.getImpactPoint(cue.targetTeam);
     const arrow = this.add.container(start.x, start.y);
-    const arrowShape = this.add.graphics();
+    const arrowImage = this.add.image(
+      0,
+      0,
+      cue.attackerTeam === "red" ? BATTLE_STAGE_ASSET_KEYS.red.arrow : BATTLE_STAGE_ASSET_KEYS.blue.arrow,
+    );
+    const arrowLabel = this.add.text(0, -18, `${cue.damage}`, {
+      color: "#fffdf4",
+      fontSize: `${Math.round(this.viewport.width * 0.046)}px`,
+      fontStyle: "900",
+      stroke: cue.attackerTeam === "red" ? "#8e301c" : "#194f9f",
+      strokeThickness: 5,
+    }).setOrigin(0.5);
     const palette = CAMP_PALETTES[cue.attackerTeam];
     const controlX = (start.x + end.x) * 0.5;
     const controlY = Math.min(start.y, end.y) - this.viewport.height * 0.2;
 
-    arrowShape.fillStyle(palette.banner, 1);
-    arrowShape.fillRoundedRect(-16, -3, 26, 6, 3);
-    arrowShape.fillTriangle(12, 0, -2, -9, -2, 9);
-    arrow.add(arrowShape);
+    arrowImage.setDisplaySize(this.viewport.width * 0.14, this.viewport.width * 0.06);
+    arrowImage.setTint(palette.banner);
+    if (cue.attackerTeam === "blue") {
+      arrowImage.setFlipX(true);
+    }
+    arrow.add([arrowImage, arrowLabel]);
     this.overlayLayer?.add(arrow);
 
     this.tweens.addCounter({
@@ -347,21 +256,26 @@ export class BattleScene extends Phaser.Scene {
       },
       onComplete: () => {
         arrow.destroy();
+        this.spawnShieldCrack(cue.targetTeam);
         this.spawnImpact(cue.targetTeam, cue.damage);
       },
     });
   }
 
   private playTimeoutCue(cue: Extract<BattleStageCue, { kind: "timeout" }>) {
-    this.spawnCenterBanner("超时处罚", 0xffefe1, "#8e3d21");
+    this.spawnOverloadRing();
+    this.spawnCenterBanner("弹药过载", 0xffefe1, "#8e3d21");
     this.cameras.main.shake(160, 0.006);
+    this.spawnShieldCrack("red");
+    this.spawnShieldCrack("blue");
     this.spawnImpact("red", cue.redDamage);
     this.spawnImpact("blue", cue.blueDamage);
   }
 
   private playWrongAnswerCue(cue: Extract<BattleStageCue, { kind: "wrong-answer" }>) {
-    this.spawnCenterBanner("答错反噬", 0xffefe1, cue.team === "red" ? "#8e3d21" : "#215aa9");
+    this.spawnCenterBanner("装填失误", 0xffefe1, cue.team === "red" ? "#8e3d21" : "#215aa9");
     this.cameras.main.shake(140, 0.005);
+    this.spawnShieldCrack(cue.team);
     this.spawnImpact(cue.team, cue.damage);
   }
 
@@ -372,6 +286,7 @@ export class BattleScene extends Phaser.Scene {
       cue.winner === "red" ? "#8b301c" : "#215aa9",
     );
     this.spawnCampPulse(cue.winner);
+    this.spawnFinishSeal(cue.winner);
     this.cameras.main.flash(240, 255, 245, 220, true);
   }
 
@@ -478,6 +393,97 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  private spawnShieldCrack(team: TeamName) {
+    if (!this.overlayLayer) {
+      return;
+    }
+
+    const palette = CAMP_PALETTES[team];
+    const point = this.getImpactPoint(team);
+    const shield = this.add.image(0, 0, BATTLE_STAGE_ASSET_KEYS.shield);
+    shield.setPosition(point.x, point.y);
+    shield.setDisplaySize(this.viewport.width * 0.18, this.viewport.width * 0.18);
+    shield.setTint(palette.glow);
+    this.overlayLayer.add(shield);
+
+    this.tweens.add({
+      targets: shield,
+      alpha: 0,
+      scaleX: 1.55,
+      scaleY: 1.55,
+      duration: 360,
+      ease: "Cubic.Out",
+      onComplete: () => shield.destroy(),
+    });
+  }
+
+  private spawnOverloadRing() {
+    if (!this.overlayLayer) {
+      return;
+    }
+
+    const ring = this.add.graphics();
+    const centerX = this.viewport.width * 0.5;
+    const centerY = this.viewport.height * 0.48;
+
+    ring.lineStyle(8, 0xffd363, 0.84);
+    ring.strokeCircle(0, 0, this.viewport.width * 0.12);
+    ring.lineStyle(3, 0xffffff, 0.78);
+    ring.strokeCircle(0, 0, this.viewport.width * 0.07);
+    ring.setPosition(centerX, centerY);
+    this.overlayLayer.add(ring);
+
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 1.8,
+      scaleY: 1.8,
+      duration: 420,
+      ease: "Cubic.Out",
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  private spawnFinishSeal(winner: TeamName) {
+    if (!this.overlayLayer) {
+      return;
+    }
+
+    const seal = this.add.container(this.viewport.width * 0.5, this.viewport.height * 0.42);
+    const panel = this.add.graphics();
+    const text = this.add.text(0, 0, "终局", {
+      color: winner === "red" ? "#8b301c" : "#1d4e9c",
+      fontSize: `${Math.round(this.viewport.width * 0.072)}px`,
+      fontStyle: "900",
+      stroke: "#fff5da",
+      strokeThickness: 8,
+    }).setOrigin(0.5);
+
+    panel.fillStyle(0xfff5da, 0.88);
+    panel.fillCircle(0, 0, this.viewport.width * 0.105);
+    panel.lineStyle(7, CAMP_PALETTES[winner].frame, 0.72);
+    panel.strokeCircle(0, 0, this.viewport.width * 0.105);
+    seal.add([panel, text]);
+    seal.setScale(0.68);
+    this.overlayLayer.add(seal);
+
+    this.tweens.add({
+      targets: seal,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 220,
+      ease: "Back.Out",
+    });
+
+    this.tweens.add({
+      targets: seal,
+      alpha: 0,
+      delay: 680,
+      duration: 260,
+      onComplete: () => seal.destroy(),
+    });
+  }
+
   private spawnCampPulse(team: TeamName) {
     if (!this.overlayLayer) {
       return;
@@ -540,19 +546,6 @@ export class BattleScene extends Phaser.Scene {
     };
   }
 
-  /**
-   * 运行时 PNG 的原图比例并不完全一致。
-   * 这里统一按“装进目标框”处理，避免在 Phaser 里把图片压扁，影响小尺寸识别性。
-   */
-  private fitSpriteIntoBox(sprite: Phaser.GameObjects.Image, maxWidth: number, maxHeight: number) {
-    const textureSource = sprite.texture.getSourceImage() as { width?: number; height?: number } | undefined;
-    const sourceWidth = textureSource?.width ?? sprite.width;
-    const sourceHeight = textureSource?.height ?? sprite.height;
-    const scale = Math.min(maxWidth / sourceWidth, maxHeight / sourceHeight);
-
-    sprite.setDisplaySize(sourceWidth * scale, sourceHeight * scale);
-  }
-
   private addLabel(
     x: number,
     y: number,
@@ -567,11 +560,6 @@ export class BattleScene extends Phaser.Scene {
 
     this.labels.push(label);
     return label;
-  }
-
-  private clearCampSprites() {
-    this.campSprites.forEach((sprite) => sprite.destroy());
-    this.campSprites = [];
   }
 
   private clearLabels() {

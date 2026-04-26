@@ -13,7 +13,9 @@ type BattleHudProps = {
   statusLabel: string;
   prompt: string;
   damage: number;
+  damageLabel: string;
   secondsLeft: number;
+  secondsLeftLabel: string;
   hint: string;
   tone: BattleHudTone;
   flash: "idle" | "success" | "wrong";
@@ -25,7 +27,9 @@ export function BattleHud({
   statusLabel,
   prompt,
   damage,
+  damageLabel,
   secondsLeft,
+  secondsLeftLabel,
   hint,
   tone,
   flash,
@@ -39,8 +43,12 @@ export function BattleHud({
           <strong className="battleHudStatusLabel">{statusLabel}</strong>
         </div>
         <div className="battleHudStatRow">
-          <span className="battleHudStatPill" data-kind="damage">伤害 {damage}</span>
-          <span className="battleHudStatPill" data-kind="time">{secondsLeft} 秒</span>
+          <span className="battleHudStatPill" data-kind="damage">
+            {damageLabel || `箭矢威力 ${damage}`}
+          </span>
+          <span className="battleHudStatPill" data-kind="time">
+            {secondsLeftLabel || `装填窗口 ${secondsLeft}s`}
+          </span>
         </div>
       </header>
       <div className="battleHudQuestion">{prompt}</div>

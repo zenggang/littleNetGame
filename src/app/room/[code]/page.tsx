@@ -174,7 +174,9 @@ export default function RoomPage() {
           blueMembers={blueMembers}
           busy={busy}
           canStart={canStart}
+          capacity={room.capacity}
           canJoinTeam={Boolean(viewer) && room.status === "open"}
+          currentPlayerId={viewer?.playerId}
           error={error}
           isHost={viewer?.playerId === room.hostPlayerId}
           onCopyCode={() => navigator.clipboard.writeText(room.code)}

@@ -48,12 +48,27 @@ describe("ResultPage", () => {
       duration_ms: 62_000,
       total_correct: { red: 6, blue: 4 },
       final_hp: { red: 32, blue: 0 },
-      final_event_log: [],
+      final_event_log: [
+        {
+          type: "answer_correct",
+          text: "红队抢先答对了，发起进攻！",
+          team: "red",
+          targetTeam: "blue",
+          damage: 10,
+          createdAt: "2026-04-16T10:00:54.000Z",
+        },
+      ],
     });
 
     render(<ResultPage />);
 
     await screen.findByText("红队胜利");
+    expect(screen.getByRole("main")).toHaveAttribute("data-scene-key", "scene.score.report");
+    expect(screen.getByRole("main")).toHaveStyle({
+      "--score-report-bg": 'url("/game-assets/scenes/score-bg.png")',
+    });
+    expect(screen.getByLabelText("关键战况")).toHaveTextContent("关键一击");
+    expect(screen.getByLabelText("结算操作")).toHaveTextContent("再来一局");
     await user.click(screen.getByRole("button", { name: "再来一局" }));
 
     await waitFor(() => {
@@ -80,8 +95,10 @@ describe("ResultPage", () => {
     render(<ResultPage />);
 
     expect(await screen.findByText("蓝队胜利")).toBeInTheDocument();
-    expect(screen.getByText("14")).toBeInTheDocument();
-    expect(screen.getByText("28")).toBeInTheDocument();
+    expect(screen.getByText("Battle Report")).toBeInTheDocument();
+    expect(screen.getAllByText("时间裁决")).toHaveLength(2);
+    expect(screen.getByText("392")).toBeInTheDocument();
+    expect(screen.getByText("784")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
     expect(getMatchSnapshot).not.toHaveBeenCalled();

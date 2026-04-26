@@ -7,6 +7,40 @@
 
 ---
 
+## 0. 2026-04-25 状态补充
+
+当前实时联机底座仍以本文后续描述为准，但下一阶段产品推进重点已经从“链路稳定性收口”扩展出一条明确的游戏化体验线。上一轮 `backgroup.png -> background-assets` 和 `imageSheet1.png -> sheet-assets` 的接入尝试没有达到视觉验收标准：资源被当成网页装饰使用，页面仍偏卡片和表单。
+
+当前应以新的资源契约为准：
+
+- 新设定图：`public/concepts/game-setting-board-2026-04-25.png`
+- 当前完整背景：`public/home_bg.png`、`public/team_bg.png`、`public/battle_bg.png`、`public/score_bg.png`
+- 当前元素图：`public/imageSheet1.png`
+- 历史背景源图：`public/backgroup.png`，不再作为本轮背景切图输入
+- 设定图记录：`docs/superpowers/assets/2026-04-25-little-net-game-setting-board.md`
+- 活跃规格：`docs/superpowers/specs/2026-04-25-setting-board-resource-contract.md`
+- 实施编排：`docs/superpowers/plans/2026-04-25-setting-board-resource-adaptation-orchestration.md`
+- 历史规格：`docs/superpowers/specs/2026-04-25-game-setting-driven-gamefeel-design.md`
+- 历史计划：`docs/superpowers/plans/2026-04-25-game-setting-driven-gamefeel-implementation.md`
+
+这条新线的目标不是重写实时协议，也不是改变当前答题结算规则，而是把已经跑通的主链路进一步从“主题化网页流程”推进到“玩家第一眼就能感知的竖屏对战游戏”。
+
+后续如果改动首页、房间、battle HUD、Phaser 战场或结算页，应优先参考 `2026-04-25-setting-board-resource-contract.md`；如果改动 coordinator、event-first 同步、bridge、弱网恢复或发布门槛，仍以本文的实时链路章节和 `docs/verification/game-core-release-checklist.md` 为准。
+
+当前游戏化体验线已完成首轮落地，状态标记为“全屏资源化主链路已接入，继续做反馈细验和移动端截图”：
+
+- 背景图不再需要切图，4 张 `*_bg.png` 已作为完整 16:9 背景进入 `public/game-assets/scenes/` 和 manifest
+- 场景背景 fit 策略改为 `full-bleed-cover`，四个主页面按一屏游戏画布处理，不再保留外层网页留白
+- `battle_bg.png` 已作为整页 battle 背景使用，上半战场和下半答题控制台由页面安全区分层覆盖
+- Phaser 只负责动态战斗反馈，不再叠加重复静态基地、道路、炮塔和大号队伍血量文字
+- DOM 答题区覆盖下半控制台安全区，单数字题和余数题都已改成数字选择
+- 余数题真值仍保持 `{ quotient, remainder }`，只改输入方式，不改题型和判题
+- 旧 `public/background-assets/`、`public/sheet-assets/` 可暂留为历史尝试，当前运行主入口为 `public/game-assets/` + manifest
+
+已执行自动门禁：`npm run lint`、焦点 `npm run test:unit -- ...`、`npm run build`、`npm run test:all` 均通过。浏览器已验大厅、房间和结算全屏资源化链路；battle 正确/答错/超时/终局反馈仍建议作为下一轮手动截图细验继续补齐。
+
+2026-04-26 追加视觉修正：低清按钮切片不再作为主运行按钮，首页创建/加入、房间开战、结算再来一局改用同风格 CSS 高清按钮；首页移除中间“开始对战”按钮；battle 答题题面、选项和发射按钮压回 `battle_bg.png` 下半控制台安全区；结算页降噪为胜负、四项核心数据、胜因、MVP、关键一击和复局入口。
+
 ## 1. 当前状态结论
 
 到当前为止，`littleNetGame` 已经具备一套可跑通且进入稳定性收口阶段的核心联机链路：
@@ -18,11 +52,13 @@
 - 结算
 - 再来一局
 
-当前主问题已经不是“方向是否成立”，而是：
+当前主问题已经不是“方向是否成立”，而是分成两条并行收口线：
 
 - 实时同步是否足够轻
 - 弱网与重连恢复是否足够稳
 - 发布门槛与可观测性是否足够清楚
+- 玩家第一眼是否足够像游戏
+- 首页、房间、battle 控制台和结算是否已经从网页流程升级成游戏体验
 
 ## 2. 当前真实技术形态
 
@@ -116,6 +152,20 @@
 - content pack / ruleset 分层
 - 结果页与战报字段稳定化
 - 观战 / 回放 / 排行等更复杂能力的可行性评估
+
+### M4：设定图驱动的游戏感增强
+
+目标：
+
+- 基于 2026-04-25 设定图，把现有主链路进一步做成更像游戏的竖屏体验
+
+重点：
+
+- 首页从昵称表单入口升级为红蓝对峙游戏大厅
+- 房间页从等待列表升级为战前编队室
+- battle 页强化 Phaser 主战场和底部战斗控制台
+- 结算页从数据报表升级为胜利战报和复局入口
+- 不改 event-first 协议，不改 coordinator 权威状态模型
 
 ## 7. 当前推荐的 OpenSpec 使用节奏
 

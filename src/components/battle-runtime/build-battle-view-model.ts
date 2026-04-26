@@ -1,4 +1,5 @@
 import type { CoordinatorMatchSnapshot } from "@/lib/game/protocol/coordinator";
+import { formatBattleHp, formatBattleHpValue } from "@/lib/game/presentation";
 import type { TeamName } from "@/lib/game/types";
 
 type BattleMatch = NonNullable<CoordinatorMatchSnapshot["match"]>;
@@ -57,9 +58,12 @@ export type BattleViewModel = {
   stageCue: BattleStageCue | null;
   questionCard: null | {
     key: string;
+    deckLabel: string;
     prompt: string;
     damage: number;
+    damageLabel: string;
     secondsLeft: number;
+    secondsLeftLabel: string;
     hint: string;
     statusLabel: string;
     submitLabel: string;
@@ -105,15 +109,19 @@ export function buildBattleViewModel(
       ? Math.max(now, Date.parse(match.countdownEndsAt))
       : now;
   const totalSecondsLeft = buildTotalSecondsLeft(match, now);
+  const stageCue = buildStageCue(previousMatch, match);
   const questionCard = match.currentQuestion
     ? {
         key: match.currentQuestion.key,
+        deckLabel: buildDeckLabel(match.phase, stageCue),
         prompt: match.currentQuestion.prompt,
         damage: match.currentQuestion.damage,
+        damageLabel: `箭矢威力 ${match.currentQuestion.damage}`,
         secondsLeft: Math.max(
           0,
           Math.ceil((effectiveQuestionDeadline - questionTimerAnchor) / 1000),
         ),
+        secondsLeftLabel: "",
         hint: "",
         statusLabel: buildQuestionStatus(
           match.phase,
@@ -124,7 +132,6 @@ export function buildBattleViewModel(
         submitLabel: buildSubmitLabel(match.phase, isCoolingDown),
       }
     : null;
-  const stageCue = buildStageCue(previousMatch, match);
   const controlTone = resolveControlTone({
     match,
     viewerTeam,
@@ -137,18 +144,19 @@ export function buildBattleViewModel(
     ? {
         ...questionCard,
         hint: buildQuestionHint(match.phase, isCoolingDown, stageCue, questionCard.secondsLeft),
+        secondsLeftLabel: buildSecondsLeftLabel(match.phase, questionCard.secondsLeft),
       }
     : null;
 
   return {
-    topBarLabel: `红 ${match.teams.red.hpCurrent} / 蓝 ${match.teams.blue.hpCurrent}`,
+    topBarLabel: `红 ${formatBattleHpValue(match.teams.red.hpCurrent)} / 蓝 ${formatBattleHpValue(match.teams.blue.hpCurrent)}`,
     topBarTimerLabel: match.phase === "finished"
       ? "已结束"
       : `总 ${totalSecondsLeft} 秒`,
     topBarPhaseLabel: buildTopBarPhaseLabel(match.phase, isCoolingDown, controlTone),
     viewerTeamLabel: buildViewerTeamLabel(viewerTeam),
-    redHpLabel: `${match.teams.red.hpCurrent} / ${match.teams.red.hpMax}`,
-    blueHpLabel: `${match.teams.blue.hpCurrent} / ${match.teams.blue.hpMax}`,
+    redHpLabel: formatBattleHp(match.teams.red),
+    blueHpLabel: formatBattleHp(match.teams.blue),
     footerMessage: buildFooterMessage({
       match,
       stageCue,
@@ -171,30 +179,30 @@ function buildQuestionHint(
   secondsLeft: number,
 ) {
   if (phase === "countdown") {
-    return "列阵完成，准备开火";
+    return "炮塔预热，等倒计时结束立刻开火";
   }
 
   if (isCoolingDown) {
-    return "失手了，装填中";
+    return "装填失误，冷却结束后再抢";
   }
 
   if (phase === "finished") {
-    return "这一局已经收束，准备看战报";
+    return "终局裁决完成，战报即将送达";
   }
 
   if (stageCue?.kind === "timeout") {
-    return "超时会让双方一起掉血";
+    return "弹药过载，双方护盾同时受损";
   }
 
   if (stageCue?.kind === "wrong-answer") {
-    return "答错会让自己掉半伤";
+    return "装填错误会反噬自己的基地";
   }
 
   if (secondsLeft <= 2) {
-    return "只剩几秒，立刻开火";
+    return "装填窗口快关闭了，立刻开火";
   }
 
-  return "抢在对面前面答出来";
+  return "解出答案，把数字箭矢打进对面护盾";
 }
 
 function buildQuestionStatus(
@@ -204,7 +212,7 @@ function buildQuestionStatus(
   now: number,
 ) {
   if (phase === "countdown") {
-    return "列阵倒计时";
+    return "炮塔预热";
   }
 
   if (isCoolingDown) {
@@ -212,14 +220,14 @@ function buildQuestionStatus(
   }
 
   if (phase === "finished") {
-    return "本局结束";
+    return "终局裁决";
   }
 
   if (Math.ceil((deadlineAt - now) / 1000) <= 2) {
-    return "最后抢答";
+    return "最后装填";
   }
 
-  return "抢答开火";
+  return "弹药待发";
 }
 
 function buildSubmitLabel(
@@ -301,28 +309,28 @@ function buildStageBanner(
 ) {
   if (stageCue?.kind === "hit") {
     return {
-      label: stageCue.attackerTeam === "red" ? "红队命中" : "蓝队命中",
+      label: stageCue.attackerTeam === "red" ? "红队数字箭矢命中" : "蓝队数字箭矢命中",
       tone: stageCue.attackerTeam === "red" ? "danger" : "ready",
     } as const;
   }
 
   if (stageCue?.kind === "wrong-answer") {
     return {
-      label: stageCue.team === "red" ? "红队失手" : "蓝队失手",
+      label: stageCue.team === "red" ? "红队装填失误" : "蓝队装填失误",
       tone: "danger",
     } as const;
   }
 
   if (stageCue?.kind === "timeout") {
     return {
-      label: "超时惩罚",
+      label: "弹药过载",
       tone: "danger",
     } as const;
   }
 
   if (stageCue?.kind === "question-opened") {
     return {
-      label: "新题装填",
+      label: "弹药装填完成",
       tone: "ready",
     } as const;
   }
@@ -365,25 +373,25 @@ function buildFooterMessage(input: {
   }
 
   if (stageCue?.kind === "timeout") {
-    return "超时了，双方都挨了一下。";
+    return "弹药过载，双方护盾同时受损。";
   }
 
   if (stageCue?.kind === "wrong-answer") {
-    return "答错受伤，装填结束后再抢。";
+    return "装填失误产生反噬，冷却结束后再抢。";
   }
 
   if (stageCue?.kind === "hit") {
     return stageCue.attackerTeam === "red"
-      ? "红队一箭命中，继续压上去。"
-      : "蓝队一箭命中，别让节奏断掉。";
+      ? "红队数字箭矢命中，继续压上去。"
+      : "蓝队数字箭矢命中，别让节奏断掉。";
   }
 
   if (match.phase === "countdown") {
-    return "列阵完成，倒计时结束后立刻开火。";
+    return "炮塔完成预热，倒计时结束后立刻开火。";
   }
 
   if (isCoolingDown) {
-    return "刚刚失手了，装填结束后再抢。";
+    return "刚刚装填失误，冷却结束后再抢。";
   }
 
   if (match.phase === "finished" && match.winner) {
@@ -392,7 +400,33 @@ function buildFooterMessage(input: {
       : "蓝队拿下这一局，战报马上送达。";
   }
 
-  return "保持专注，抢在别人前面答出来。";
+  return "保持专注，把这一发数字箭矢装好。";
+}
+
+function buildDeckLabel(
+  phase: BattleMatch["phase"],
+  stageCue: BattleStageCue | null,
+) {
+  if (phase === "finished") {
+    return "本局战报";
+  }
+
+  if (stageCue?.kind === "question-opened") {
+    return "弹药装填完成";
+  }
+
+  return "当前弹药题";
+}
+
+function buildSecondsLeftLabel(
+  phase: BattleMatch["phase"],
+  secondsLeft: number,
+) {
+  if (phase === "finished") {
+    return "战报生成中";
+  }
+
+  return `装填窗口 ${secondsLeft}s`;
 }
 
 function buildStageCue(

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -8,6 +9,7 @@ import { PhaserBattleStage } from "@/components/battle-runtime/PhaserBattleStage
 import { buildBattleViewModel } from "@/components/battle-runtime/build-battle-view-model";
 import { QuestionForm } from "@/components/game/question-form";
 import { useMatchSession } from "@/lib/game/client/use-match-session";
+import { getAvailableGameAsset } from "@/lib/game/assets/asset-manifest";
 import { matchStateFromSnapshot } from "@/lib/game/protocol/from-supabase-snapshot";
 import { writeCachedMatchReport } from "@/lib/game/result/local-report-cache";
 import {
@@ -20,6 +22,11 @@ import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 export const BATTLE_RESULT_REDIRECT_DELAY_MS = 1_200;
+const BATTLE_PLAY_SCENE = getAvailableGameAsset("scene.battle.play");
+
+type BattlePageStyle = CSSProperties & {
+  "--battle-play-bg": string;
+};
 
 type ControlFlash = "idle" | "success" | "wrong";
 type BattleSnapshotLike = Awaited<ReturnType<typeof getMatchSnapshot>> | CoordinatorMatchSnapshot | null;
@@ -204,7 +211,12 @@ export default function BattlePage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.shell} data-tone={viewModel.controlTone}>
+      <section
+        className={styles.shell}
+        data-scene-key={BATTLE_PLAY_SCENE.key}
+        data-tone={viewModel.controlTone}
+        style={{ "--battle-play-bg": `url("${BATTLE_PLAY_SCENE.path}")` } as BattlePageStyle}
+      >
         <header className={styles.topBar} data-tone={viewModel.controlTone}>
           <div className={styles.topBarCopy}>
             <p className={styles.kicker}>
@@ -242,43 +254,47 @@ export default function BattlePage() {
         </section>
 
         {viewModel.questionCard ? (
-          <BattleHud
-            damage={viewModel.questionCard.damage}
-            deckLabel={match.phase === "finished" ? "本局收束" : "当前弹药题"}
-            flash={controlFlash}
-            prompt={viewModel.questionCard.prompt}
-            secondsLeft={viewModel.questionCard.secondsLeft}
-            statusLabel={viewModel.questionCard.statusLabel}
-            hint={viewModel.questionCard.hint}
-            tone={viewModel.controlTone}
-          >
-            <QuestionForm
-              question={match.currentQuestion}
-              disabled={
-                match.phase !== "active" ||
-                isCoolingDown ||
-                !viewer ||
-                activeMatchExpired ||
-                viewModel.questionCard.secondsLeft <= 0
-              }
+          <div className={styles.hudDock}>
+            <BattleHud
+              damage={viewModel.questionCard.damage}
+              damageLabel={viewModel.questionCard.damageLabel}
+              deckLabel={viewModel.questionCard.deckLabel}
               flash={controlFlash}
-              submitLabel={viewModel.questionCard.submitLabel}
-              onSubmit={async (payload) => {
-                try {
-                  const result = await matchSession.submitAnswer(payload);
-                  setError("");
-                  setFeedback(
-                    result.ok ? result.message : toUserMessage(new Error(result.message)),
-                  );
-                  setControlFlash(result.ok ? "success" : "wrong");
-                } catch (nextError) {
-                  setFeedback("");
-                  setError(toUserMessage(nextError));
-                  setControlFlash("wrong");
+              prompt={viewModel.questionCard.prompt}
+              secondsLeft={viewModel.questionCard.secondsLeft}
+              secondsLeftLabel={viewModel.questionCard.secondsLeftLabel}
+              statusLabel={viewModel.questionCard.statusLabel}
+              hint={viewModel.questionCard.hint}
+              tone={viewModel.controlTone}
+            >
+              <QuestionForm
+                question={match.currentQuestion}
+                disabled={
+                  match.phase !== "active" ||
+                  isCoolingDown ||
+                  !viewer ||
+                  activeMatchExpired ||
+                  viewModel.questionCard.secondsLeft <= 0
                 }
-              }}
-            />
-          </BattleHud>
+                flash={controlFlash}
+                submitLabel={viewModel.questionCard.submitLabel}
+                onSubmit={async (payload) => {
+                  try {
+                    const result = await matchSession.submitAnswer(payload);
+                    setError("");
+                    setFeedback(
+                      result.ok ? result.message : toUserMessage(new Error(result.message)),
+                    );
+                    setControlFlash(result.ok ? "success" : "wrong");
+                  } catch (nextError) {
+                    setFeedback("");
+                    setError(toUserMessage(nextError));
+                    setControlFlash("wrong");
+                  }
+                }}
+              />
+            </BattleHud>
+          </div>
         ) : null}
 
         <footer className={styles.footer} data-tone={viewModel.controlTone}>
